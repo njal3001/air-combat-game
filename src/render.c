@@ -16,20 +16,24 @@
 const char *vert_shader_str =
     "#version 330 core\n"
     "layout (location = 0) in vec3 a_pos;\n"
+    "layout (location = 1) in vec4 a_col;\n"
     "uniform mat4 model;\n"
     "uniform mat4 view;\n"
     "uniform mat4 projection;\n"
+    "out vec4 v_col;\n"
     "void main()\n"
     "{\n"
     "   gl_Position = vec4(a_pos, 1.0) * model * view * projection;\n"
+    "   v_col = a_col;\n"
     "}";
 
 const char *frag_shader_str =
     "#version 330 core\n"
     "out vec4 o_col;"
+    "in vec4 v_col;\n"
     "void main()\n"
     "{\n"
-    "   o_col = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
+    "   o_col = v_col;\n"
     "}";
 
 size_t vertex_count;
@@ -50,7 +54,7 @@ static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
 
-static void make_vertex(float x, float y, float z);
+static void make_vertex(float x, float y, float z, struct color c);
 
 bool render_init()
 {
@@ -58,6 +62,9 @@ bool render_init()
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
     glDebugMessageCallback(gl_message_callback, NULL);
+
+    // Depth testing
+    glEnable(GL_DEPTH_TEST);
 
     // Vertex array
     glGenVertexArrays(1, &vao_id);
@@ -123,8 +130,14 @@ bool render_init()
     glDeleteShader(frag_shader_id);
 
     // Vertex attributes
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)NULL);
+    size_t pos_size = 3 * sizeof(GLfloat);
+    size_t color_size = 4 * sizeof(GLubyte);
+    size_t stride = pos_size + color_size;
+
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)NULL);
     glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (const GLvoid*)pos_size);
+    glEnableVertexAttribArray(1);
 
     return true;
 }
@@ -163,11 +176,12 @@ void render_flush(struct mat4 *model, struct mat4 *view, struct mat4 *projection
     index_count = 0;
 }
 
-void render_tri(struct vec3 a, struct vec3 b, struct vec3 c)
+void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
+        struct color col_a, struct color col_b, struct color col_c)
 {
-    make_vertex(a.x, a.y, a.z);
-    make_vertex(b.x, b.y, b.z);
-    make_vertex(c.x, c.y, c.z);
+    make_vertex(a.x, a.y, a.z, col_a);
+    make_vertex(b.x, b.y, b.z, col_b);
+    make_vertex(c.x, c.y, c.z, col_c);
 
     *index_map = vertex_count;
     index_map++;
@@ -180,12 +194,13 @@ void render_tri(struct vec3 a, struct vec3 b, struct vec3 c)
     index_count += 3;
 }
 
-void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d)
+void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
+        struct color col_a, struct color col_b, struct color col_c, struct color col_d)
 {
-    make_vertex(a.x, a.y, a.z);
-    make_vertex(b.x, b.y, b.z);
-    make_vertex(c.x, c.y, c.z);
-    make_vertex(d.x, d.y, d.z);
+    make_vertex(a.x, a.y, a.z, col_a);
+    make_vertex(b.x, b.y, b.z, col_b);
+    make_vertex(c.x, c.y, c.z, col_c);
+    make_vertex(d.x, d.y, d.z, col_d);
 
     *index_map = vertex_count;
     index_map++;
@@ -204,7 +219,9 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d)
     index_count += 6;
 }
 
-void render_cube(struct vec3 pos, float length)
+void render_cube(struct vec3 pos, float length, struct color top_col,
+        struct color bot_col, struct color left_col, struct color right_col,
+        struct color near_col, struct color far_col)
 {
     // TODO: Some overlapping vertices could be removed
 
@@ -214,53 +231,54 @@ void render_cube(struct vec3 pos, float length)
             vec3_create(pos.x - l2, pos.y + l2, pos.z - l2),
             vec3_create(pos.x - l2, pos.y + l2, pos.z + l2),
             vec3_create(pos.x + l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z - l2));
+            vec3_create(pos.x + l2, pos.y + l2, pos.z - l2),
+            top_col, top_col, top_col, top_col);
     // Bottom
     render_quad(
             vec3_create(pos.x - l2, pos.y - l2, pos.z - l2),
             vec3_create(pos.x - l2, pos.y - l2, pos.z + l2),
             vec3_create(pos.x + l2, pos.y - l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2));
+            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2),
+            bot_col, bot_col, bot_col, bot_col);
     // Left
     render_quad(
             vec3_create(pos.x - l2, pos.y - l2, pos.z + l2),
             vec3_create(pos.x - l2, pos.y + l2, pos.z + l2),
             vec3_create(pos.x - l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x - l2, pos.y - l2, pos.z - l2));
+            vec3_create(pos.x - l2, pos.y - l2, pos.z - l2),
+            left_col, left_col, left_col, left_col);
     // Right
     render_quad(
             vec3_create(pos.x + l2, pos.y - l2, pos.z + l2),
             vec3_create(pos.x + l2, pos.y + l2, pos.z + l2),
             vec3_create(pos.x + l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2));
+            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2),
+            right_col, right_col, right_col, right_col);
     // Near
     render_quad(
             vec3_create(pos.x - l2, pos.y - l2, pos.z - l2),
             vec3_create(pos.x - l2, pos.y + l2, pos.z - l2),
             vec3_create(pos.x + l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2));
+            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2),
+            near_col, near_col, near_col, near_col);
     // Far
     render_quad(
             vec3_create(pos.x - l2, pos.y - l2, pos.z + l2),
             vec3_create(pos.x - l2, pos.y + l2, pos.z + l2),
             vec3_create(pos.x + l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z + l2));
+            vec3_create(pos.x + l2, pos.y - l2, pos.z + l2),
+            far_col, far_col, far_col, far_col);
 }
 
-void make_vertex(float x, float y, float z)
+void make_vertex(float x, float y, float z, struct color c)
 {
     vertex_map->pos.x = x;
     vertex_map->pos.y = y;
     vertex_map->pos.z = z;
+    vertex_map->col = c;
 
     vertex_map++;
 }
-
-// void render_cube(struct vec3 pos, float length, struct color col_a,
-//         struct color col_b, struct color col_c, struct color col_d)
-// {
-//
-// }
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 {

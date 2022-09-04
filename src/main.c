@@ -57,18 +57,19 @@ int main()
         if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
             cam_rot_y -= 0.01f;
 
-        glClear(GL_COLOR_BUFFER_BIT);
+         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         view = mat4_mul(mat4_translate(vec3_neg(cam_pos)), mat4_roty(cam_rot_y));
 
         render_begin();
 
-        // render_tri(vec3_create(0.0f, 0.5f, 0.0f), vec3_create(-0.5f, 0.0f, 0.0f), vec3_create(0.0f, 0.0f, 0.0f));
-
-        // render_quad(vec3_create(-0.5f, -0.5f, 0.0f), vec3_create(-0.5f, 0.5f, 0.0f),
-        //         vec3_create(0.5f, 0.5f, 0.0f), vec3_create(0.5f, -0.5f, 0.0f));
-
-        render_cube(vec3_create(0.0f, 0.0f, 0.0f), 0.5f);
+        render_cube(vec3_create(0.0f, 0.0f, 0.0f), 0.5f,
+                color_create(255, 0, 0, 255),
+                color_create(0, 255, 0, 255),
+                color_create(0, 0, 255, 255),
+                color_create(255, 255, 0, 255),
+                color_create(255, 0, 255, 255),
+                color_create(0, 255, 255, 255));
 
         render_end();
         render_flush(&model, &view, &projection);
