@@ -1,22 +1,10 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <stdlib.h>
-
-const char *vert_shader_str =
-    "#version 330 core\n"
-    "layout (location 0) in vec3 a_pos\n"
-    "void main()\n"
-    "{\n"
-    "   glPosition = vec4(a_pos, 1.0);\n"
-    "}";
-
-const char *frag_shader_str =
-    "#version 330 core\n"
-    "out vec4 o_col"
-    "void main()\n"
-    "{\n"
-    "   FragColor = vec4(1.0f, 1.0f, 1.0f, 1.0f);\n"
-    "}";
+#include "spatial.h"
+#include "render.h"
+#include <stdio.h>
+#include <math.h>
 
 int main()
 {
@@ -40,53 +28,57 @@ int main()
         return EXIT_FAILURE;
     }
 
-    float vertices[] =
-    {
-        0.0f, 0.5f, 0.0f,
-        -0.5f, 0.0f, 0.0f,
-        0.5f, 0.0f, 0.0f
-    };
+    render_init();
 
-    // Vertex buffer
-    GLuint vbo_id;
-    glGenBuffers(1, &vbo_id);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+    struct mat4 model = mat4_identity();
+    struct mat4 view;
+    struct mat4 projection = mat4_perspective(M_PI / 4.0f, 640.0f / 480.0f, 0.1f, 100.0f);
 
-    // Vertex shader
-    GLuint vert_shader_id = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vert_shader_id, 1, &vert_shader_str, NULL);
-    glCompileShader(vert_shader_id);
-
-    // Fragment shader
-    GLuint frag_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(frag_shader_id, 1, &frag_shader_str, NULL);
-    glCompileShader(frag_shader_id);
-
-    // Shader program
-    GLuint shader_program_id = glCreateProgram();
-    glAttachShader(shader_program_id, vert_shader_id);
-    glAttachShader(shader_program_id, frag_shader_id);
-    glLinkProgram(shader_program_id);
-
-    glUseProgram(shader_program_id);
-
-    // Delete shaders
-    glDeleteShader(vert_shader_id);
-    glDeleteShader(frag_shader_id);
-
-    // Vertex attributes
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float), (void*)NULL);
-    glEnableVertexAttribArray(0);
+    struct vec3 cam_pos = vec3_create(0.0f, 0.0f, 1.0f);
+    float cam_rot_y = 0.0f;
 
     while (!glfwWindowShouldClose(window))
     {
+        if (glfwGetKey(window, GLFW_KEY_RIGHT) == GLFW_PRESS)
+            cam_pos.x += 0.01f;
+        if (glfwGetKey(window, GLFW_KEY_LEFT) == GLFW_PRESS)
+            cam_pos.x -= 0.01f;
+        if (glfwGetKey(window, GLFW_KEY_UP) == GLFW_PRESS)
+            cam_pos.y += 0.01f;
+        if (glfwGetKey(window, GLFW_KEY_DOWN) == GLFW_PRESS)
+            cam_pos.y -= 0.01f;
+        if (glfwGetKey(window, GLFW_KEY_Z) == GLFW_PRESS)
+            cam_pos.z += 0.01f;
+        if (glfwGetKey(window, GLFW_KEY_X) == GLFW_PRESS)
+            cam_pos.z -= 0.01f;
+
+        if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+            cam_rot_y += 0.01f;
+        if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+            cam_rot_y -= 0.01f;
+
         glClear(GL_COLOR_BUFFER_BIT);
-        glDrawArrays(GL_TRIANGLES, 0, 3);
+
+        view = mat4_mul(mat4_translate(vec3_neg(cam_pos)), mat4_roty(cam_rot_y));
+
+        render_begin();
+
+        // render_tri(vec3_create(0.0f, 0.5f, 0.0f), vec3_create(-0.5f, 0.0f, 0.0f), vec3_create(0.0f, 0.0f, 0.0f));
+
+        // render_quad(vec3_create(-0.5f, -0.5f, 0.0f), vec3_create(-0.5f, 0.5f, 0.0f),
+        //         vec3_create(0.5f, 0.5f, 0.0f), vec3_create(0.5f, -0.5f, 0.0f));
+
+        render_cube(vec3_create(0.0f, 0.0f, 0.0f), 0.5f);
+
+        render_end();
+        render_flush(&model, &view, &projection);
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
+
+    render_shutdown();
 
     glfwTerminate();
     return EXIT_SUCCESS;

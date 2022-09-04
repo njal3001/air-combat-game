@@ -7,10 +7,10 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 
-message("${GLFW3_LIBRARIES}")
-
 add_executable(ww1-air-combat
     src/main.c
+    src/spatial.c
+    src/render.c
 )
 
 include_directories(${GLEW_INCLUDE_DIRS})
