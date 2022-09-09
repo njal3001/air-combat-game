@@ -28,7 +28,22 @@ int main()
         return EXIT_FAILURE;
     }
 
-    render_init();
+    if (!render_init())
+    {
+        glfwTerminate();
+        printf("Failed to initialize renderer!");
+        return EXIT_FAILURE;
+    }
+
+    struct texture tex = create_texture("../assets/wall.jpg");
+    if (tex.id)
+    {
+        printf("Texture (id: %d, w: %d, h: %d)\n", tex.id, tex.width, tex.height);
+    }
+    else
+    {
+        printf("Could not load texture\n");
+    }
 
     struct mat4 model = mat4_identity();
     struct mat4 view;
@@ -36,6 +51,21 @@ int main()
 
     struct vec3 cam_pos = vec3_create(0.0f, 0.0f, 1.0f);
     float cam_rot_y = 0.0f;
+
+    bind_texture(&tex, 0);
+
+    struct vertex vertices[] =
+    {
+        { vec3_create(-0.5f, -0.5f, 0.0f), COLOR_WHITE, 0.0f, 0.0f},
+        { vec3_create(-0.5f, 0.5f, 0.0f), COLOR_WHITE, 0.0f, 1.0f},
+        { vec3_create(0.5f, 0.5f, 0.0f), COLOR_WHITE, 1.0f, 1.0f},
+        { vec3_create(0.5f, -0.5f, 0.0f), COLOR_WHITE, 1.0f, 0.0f},
+    };
+
+    GLushort indices[] =
+    {
+        0, 1, 3, 1, 2, 3,
+    };
 
     while (!glfwWindowShouldClose(window))
     {
@@ -63,13 +93,15 @@ int main()
 
         render_begin();
 
-        render_cube(vec3_create(0.0f, 0.0f, 0.0f), 0.5f,
-                color_create(255, 0, 0, 255),
-                color_create(0, 255, 0, 255),
-                color_create(0, 0, 255, 255),
-                color_create(255, 255, 0, 255),
-                color_create(255, 0, 255, 255),
-                color_create(0, 255, 255, 255));
+        render_quad(
+                vec3_create(-1.0, -1.0, 0.0f),
+                vec3_create(-1.0, -0.25f, 0.0f),
+                vec3_create(-0.25f, -0.25f, 0.0f),
+                vec3_create(-0.25f, -1.0f, 0.0f),
+                COLOR_WHITE, COLOR_WHITE, COLOR_WHITE, COLOR_WHITE,
+                0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0.0f);
+
+        render_model(vertices, 4, indices, 6);
 
         render_end();
         render_flush(&model, &view, &projection);

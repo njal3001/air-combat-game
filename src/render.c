@@ -1,7 +1,9 @@
 #include "render.h"
 #include <stdbool.h>
-#include <GL/glew.h>
 #include <stdio.h>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include "../third_party/stb_image.h"
 
 #ifdef _WIN32
 #    define WIN32_LEAN_AND_MEAN
@@ -17,23 +19,28 @@ const char *vert_shader_str =
     "#version 330 core\n"
     "layout (location = 0) in vec3 a_pos;\n"
     "layout (location = 1) in vec4 a_col;\n"
+    "layout (location = 2) in vec2 a_uv;\n"
     "uniform mat4 model;\n"
     "uniform mat4 view;\n"
     "uniform mat4 projection;\n"
     "out vec4 v_col;\n"
+    "out vec2 v_uv;\n"
     "void main()\n"
     "{\n"
     "   gl_Position = vec4(a_pos, 1.0) * model * view * projection;\n"
     "   v_col = a_col;\n"
+    "   v_uv = a_uv;\n"
     "}";
 
 const char *frag_shader_str =
     "#version 330 core\n"
     "out vec4 o_col;"
     "in vec4 v_col;\n"
+    "in vec2 v_uv;\n"
+    "uniform sampler2D sampler;\n"
     "void main()\n"
     "{\n"
-    "   o_col = v_col;\n"
+    "   o_col = texture(sampler, v_uv) * v_col;\n"
     "}";
 
 size_t vertex_count;
@@ -46,15 +53,16 @@ GLuint vbo_id;
 GLuint ebo_id;
 GLuint shader_id;
 
-GLint model_location;
-GLint view_location;
-GLint projection_location;
+GLint u_model_location;
+GLint u_view_location;
+GLint u_projection_location;
+GLint u_sampler_location;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
 
-static void make_vertex(float x, float y, float z, struct color c);
+static void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy);
 
 bool render_init()
 {
@@ -117,27 +125,42 @@ bool render_init()
     glAttachShader(shader_id, vert_shader_id);
     glAttachShader(shader_id, frag_shader_id);
     glLinkProgram(shader_id);
-    glUseProgram(shader_id);
-
-    // Store shader uniform locations
-    model_location = glGetUniformLocation(shader_id, "model");
-    view_location = glGetUniformLocation(shader_id, "view");
-    projection_location = glGetUniformLocation(shader_id, "projection");
-
 
     // Delete shaders
     glDeleteShader(vert_shader_id);
     glDeleteShader(frag_shader_id);
 
+    glGetProgramiv(shader_id, GL_LINK_STATUS, &success);
+    if (!success)
+    {
+        glGetProgramInfoLog(shader_id, 512, NULL, shader_error_msg);
+        printf("Error! Shader linking failed!\n%s", shader_error_msg);
+        return false;
+    }
+
+    glUseProgram(shader_id);
+
+    // Store shader uniform locations
+    u_model_location = glGetUniformLocation(shader_id, "model");
+    u_view_location = glGetUniformLocation(shader_id, "view");
+    u_projection_location = glGetUniformLocation(shader_id, "projection");
+    u_sampler_location = glGetUniformLocation(shader_id, "sampler");
+
+    // Set sampler uniforms
+    glUniform1i(u_sampler_location, 0);
+
     // Vertex attributes
     size_t pos_size = 3 * sizeof(GLfloat);
     size_t color_size = 4 * sizeof(GLubyte);
-    size_t stride = pos_size + color_size;
+    size_t uv_size = 2 * sizeof(GLfloat);
+    size_t stride = pos_size + color_size + uv_size;
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)NULL);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (const GLvoid*)pos_size);
     glEnableVertexAttribArray(1);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)(pos_size + color_size));
+    glEnableVertexAttribArray(2);
 
     return true;
 }
@@ -147,6 +170,45 @@ void render_shutdown()
     glDeleteBuffers(1, &vbo_id);
     glDeleteBuffers(1, &ebo_id);
     glDeleteVertexArrays(1, &vao_id);
+}
+
+struct texture create_texture(const char *img_path)
+{
+    int width, height, nchannels;
+    unsigned char *data = stbi_load(img_path, &width, &height, &nchannels, 0);
+
+    if (!data)
+    {
+        return (struct texture)
+        {
+            .id = 0,
+            .width = 0,
+            .height = 0,
+        };
+    }
+
+    GLuint tex_id;
+    glGenTextures(1, &tex_id);
+
+    glBindTexture(GL_TEXTURE_2D, tex_id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+
+    return (struct texture)
+    {
+        .id = tex_id,
+        .width = width,
+        .height = height,
+    };
+}
+
+void bind_texture(struct texture *texture, size_t index)
+{
+    glActiveTexture(GL_TEXTURE0 + index);
+    glBindTexture(GL_TEXTURE_2D, texture->id);
 }
 
 void render_begin()
@@ -166,9 +228,9 @@ void render_end()
 void render_flush(struct mat4 *model, struct mat4 *view, struct mat4 *projection)
 {
     // Upload uniforms
-    glUniformMatrix4fv(model_location, 1, GL_FALSE, &model->m11);
-    glUniformMatrix4fv(view_location, 1, GL_FALSE, &view->m11);
-    glUniformMatrix4fv(projection_location, 1, GL_FALSE, &projection->m11);
+    glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model->m11);
+    glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view->m11);
+    glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection->m11);
 
     glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_SHORT, 0);
 
@@ -177,11 +239,12 @@ void render_flush(struct mat4 *model, struct mat4 *view, struct mat4 *projection
 }
 
 void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
-        struct color col_a, struct color col_b, struct color col_c)
+        struct color col_a, struct color col_b, struct color col_c,
+        float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c)
 {
-    make_vertex(a.x, a.y, a.z, col_a);
-    make_vertex(b.x, b.y, b.z, col_b);
-    make_vertex(c.x, c.y, c.z, col_c);
+    make_vertex(a.x, a.y, a.z, col_a, uvx_a, uvy_a);
+    make_vertex(b.x, b.y, b.z, col_b, uvx_b, uvy_b);
+    make_vertex(c.x, c.y, c.z, col_c, uvx_c, uvy_c);
 
     *index_map = vertex_count;
     index_map++;
@@ -195,12 +258,14 @@ void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
 }
 
 void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
-        struct color col_a, struct color col_b, struct color col_c, struct color col_d)
+        struct color col_a, struct color col_b, struct color col_c, struct color col_d,
+        float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c,
+        float uvx_d, float uvy_d)
 {
-    make_vertex(a.x, a.y, a.z, col_a);
-    make_vertex(b.x, b.y, b.z, col_b);
-    make_vertex(c.x, c.y, c.z, col_c);
-    make_vertex(d.x, d.y, d.z, col_d);
+    make_vertex(a.x, a.y, a.z, col_a, uvx_a, uvy_a);
+    make_vertex(b.x, b.y, b.z, col_b, uvx_b, uvy_b);
+    make_vertex(c.x, c.y, c.z, col_c, uvx_c, uvy_c);
+    make_vertex(d.x, d.y, d.z, col_d, uvx_d, uvy_d);
 
     *index_map = vertex_count;
     index_map++;
@@ -219,63 +284,30 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
     index_count += 6;
 }
 
-void render_cube(struct vec3 pos, float length, struct color top_col,
-        struct color bot_col, struct color left_col, struct color right_col,
-        struct color near_col, struct color far_col)
+void render_model(struct vertex *vertices, size_t vcount,
+        GLushort *indices, size_t icount)
 {
-    // TODO: Some overlapping vertices could be removed
+    memcpy(vertex_map, vertices, vcount * sizeof(struct vertex));
+    vertex_map += vcount;
 
-    float l2 = length / 2.0f;
-    // Top
-    render_quad(
-            vec3_create(pos.x - l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x - l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z - l2),
-            top_col, top_col, top_col, top_col);
-    // Bottom
-    render_quad(
-            vec3_create(pos.x - l2, pos.y - l2, pos.z - l2),
-            vec3_create(pos.x - l2, pos.y - l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2),
-            bot_col, bot_col, bot_col, bot_col);
-    // Left
-    render_quad(
-            vec3_create(pos.x - l2, pos.y - l2, pos.z + l2),
-            vec3_create(pos.x - l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x - l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x - l2, pos.y - l2, pos.z - l2),
-            left_col, left_col, left_col, left_col);
-    // Right
-    render_quad(
-            vec3_create(pos.x + l2, pos.y - l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2),
-            right_col, right_col, right_col, right_col);
-    // Near
-    render_quad(
-            vec3_create(pos.x - l2, pos.y - l2, pos.z - l2),
-            vec3_create(pos.x - l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z - l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z - l2),
-            near_col, near_col, near_col, near_col);
-    // Far
-    render_quad(
-            vec3_create(pos.x - l2, pos.y - l2, pos.z + l2),
-            vec3_create(pos.x - l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y + l2, pos.z + l2),
-            vec3_create(pos.x + l2, pos.y - l2, pos.z + l2),
-            far_col, far_col, far_col, far_col);
+    for (size_t i = 0; i < icount; i++)
+    {
+        *index_map = vertex_count + indices[i];
+        index_map++;
+    }
+
+    vertex_count += vcount;
+    index_count += icount;
 }
 
-void make_vertex(float x, float y, float z, struct color c)
+void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy)
 {
     vertex_map->pos.x = x;
     vertex_map->pos.y = y;
     vertex_map->pos.z = z;
     vertex_map->col = c;
+    vertex_map->uvx = uvx;
+    vertex_map->uvy = uvy;
 
     vertex_map++;
 }
@@ -290,6 +322,12 @@ struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
 
     return c;
 }
+
+const struct color COLOR_WHITE = { 255, 255, 255, 255 };
+const struct color COLOR_BLACK = { 0, 0, 0, 255       };
+const struct color COLOR_RED =   { 255, 0, 0, 255     };
+const struct color COLOR_GREEN = { 0, 255, 0, 255     };
+const struct color COLOR_BLUE =  { 0, 0, 255, 255     };
 
 void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
