@@ -26,6 +26,14 @@ struct texture
     GLsizei width, height;
 };
 
+struct mesh
+{
+    struct vertex *vertices;
+    GLushort *indices;
+    size_t vertex_count;
+    size_t index_count;
+};
+
 bool render_init();
 void render_shutdown();
 
@@ -35,7 +43,7 @@ void render_begin();
 void render_end();
 void render_flush();
 
-void bind_texture(struct texture *texture, size_t index);
+void bind_texture(const struct texture *texture, size_t index);
 
 void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
         struct color col_a, struct color col_b, struct color col_c,
@@ -45,8 +53,7 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
         float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c,
         float uvx_d, float uvy_d);
 
-void render_model(struct vertex *vertices, size_t vertex_count, GLushort *indices,
-        size_t index_count);
+void render_mesh(const struct mesh *mesh);
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 

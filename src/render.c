@@ -205,7 +205,7 @@ struct texture create_texture(const char *img_path)
     };
 }
 
-void bind_texture(struct texture *texture, size_t index)
+void bind_texture(const struct texture *texture, size_t index)
 {
     glActiveTexture(GL_TEXTURE0 + index);
     glBindTexture(GL_TEXTURE_2D, texture->id);
@@ -284,20 +284,19 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
     index_count += 6;
 }
 
-void render_model(struct vertex *vertices, size_t vcount,
-        GLushort *indices, size_t icount)
+void render_mesh(const struct mesh *mesh)
 {
-    memcpy(vertex_map, vertices, vcount * sizeof(struct vertex));
-    vertex_map += vcount;
+    memcpy(vertex_map, mesh->vertices, mesh->vertex_count * sizeof(struct vertex));
+    vertex_map += mesh->vertex_count;
 
-    for (size_t i = 0; i < icount; i++)
+    for (size_t i = 0; i < mesh->index_count; i++)
     {
-        *index_map = vertex_count + indices[i];
+        *index_map = vertex_count + mesh->indices[i];
         index_map++;
     }
 
-    vertex_count += vcount;
-    index_count += icount;
+    vertex_count += mesh->vertex_count;
+    index_count += mesh->index_count;
 }
 
 void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy)

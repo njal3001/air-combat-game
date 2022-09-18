@@ -24,13 +24,17 @@ struct mat4
 };
 
 struct vec3 vec3_create(float x, float y, float z);
-struct vec3 vec3_zero();
 
 struct vec3 vec3_neg(struct vec3 v);
 struct vec3 vec3_add(struct vec3 lhs, struct vec3 rhs);
 struct vec3 vec3_sub(struct vec3 lhs, struct vec3 rhs);
 struct vec3 vec3_mul(struct vec3 v, float rhs);
 struct vec3 vec3_div(struct vec3 v, float rhs);
+void vec3_add_eq(struct vec3 *lhs, struct vec3 rhs);
+void vec3_sub_eq(struct vec3 *lhs, struct vec3 rhs);
+void vec3_mul_eq(struct vec3 *v, float rhs);
+void vec3_div_eq(struct vec3 *v, float rhs);
+
 float vec3_dot(struct vec3 v1, struct vec3 v2);
 struct vec3 vec3_cross(struct vec3 v1, struct vec3 v2);
 float vec3_length(struct vec3 v);
@@ -55,6 +59,15 @@ struct mat4 mat4_roty(float rad);
 struct mat4 mat4_rotz(float rad);
 struct mat4 mat4_ortho(float left, float right, float bottom, float top, float near, float far);
 struct mat4 mat4_perspective(float fov, float ratio, float near, float far);
+struct mat4 mat4_lookat(struct vec3 at, struct vec3 target, struct vec3 up);
 
 void vec3_print(struct vec3 v);
 void mat4_print(struct mat4 m);
+
+extern const struct vec3 VEC3_ZERO;
+extern const struct vec3 VEC3_UP;
+extern const struct vec3 VEC3_DOWN;
+extern const struct vec3 VEC3_RIGHT;
+extern const struct vec3 VEC3_LEFT;
+extern const struct vec3 VEC3_FORWARD;
+extern const struct vec3 VEC3_BACK;

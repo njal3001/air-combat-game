@@ -12,13 +12,6 @@ struct vec3 vec3_create(float x, float y, float z)
     return res;
 }
 
-struct vec3 vec3_zero()
-{
-    struct vec3 res;
-    memset(&res, 0, sizeof(struct vec3));
-    return res;
-}
-
 struct vec3 vec3_neg(struct vec3 v)
 {
     struct vec3 res;
@@ -69,6 +62,34 @@ struct vec3 vec3_div(struct vec3 v, float rhs)
     return res;
 }
 
+void vec3_add_eq(struct vec3 *lhs, struct vec3 rhs)
+{
+    lhs->x += rhs.x;
+    lhs->y += rhs.y;
+    lhs->z += rhs.z;
+}
+
+void vec3_sub_eq(struct vec3 *lhs, struct vec3 rhs)
+{
+    lhs->x -= rhs.x;
+    lhs->y -= rhs.y;
+    lhs->z -= rhs.z;
+}
+
+void vec3_mul_eq(struct vec3 *v, float rhs)
+{
+    v->x *= rhs;
+    v->y *= rhs;
+    v->z *= rhs;
+}
+
+void vec3_div_eq(struct vec3 *v, float rhs)
+{
+    v->x /= rhs;
+    v->y /= rhs;
+    v->z /= rhs;
+}
+
 float vec3_dot(struct vec3 v1, struct vec3 v2)
 {
     return v1.x * v2.x + v1.y * v2.y + v1.z * v2.z;
@@ -78,7 +99,7 @@ struct vec3 vec3_cross(struct vec3 v1, struct vec3 v2)
 {
     struct vec3 res;
     res.x = v1.y * v2.z - v1.z * v2.y;
-    res.y = v1.z * v2.z - v1.x * v2.z;
+    res.y = v1.z * v2.x - v1.x * v2.z;
     res.z = v1.x * v2.y - v1.y * v2.x;
 
     return res;
@@ -331,6 +352,37 @@ struct mat4 mat4_perspective(float fov, float aspect, float near, float far)
     return res;
 }
 
+struct mat4 mat4_lookat(struct vec3 at, struct vec3 target, struct vec3 up)
+{
+    struct vec3 zaxis = vec3_normalize(vec3_sub(at, target));
+    struct vec3 xaxis = vec3_normalize(vec3_cross(up, zaxis));
+    struct vec3 yaxis = vec3_cross(zaxis, xaxis);
+
+    struct mat4 res;
+
+    res.m11 = xaxis.x;
+    res.m12 = xaxis.y;
+    res.m13 = xaxis.z;
+    res.m14 = -vec3_dot(xaxis, at);
+
+    res.m21 = yaxis.x;
+    res.m22 = yaxis.y;
+    res.m23 = yaxis.z;
+    res.m24 = -vec3_dot(yaxis, at);
+
+    res.m31 = zaxis.x;
+    res.m32 = yaxis.y;
+    res.m33 = zaxis.z;
+    res.m34 = -vec3_dot(zaxis, at);
+
+    res.m41 = 0.0f;
+    res.m42 = 0.0f;
+    res.m43 = 0.0f;
+    res.m44 = 1.0f;
+
+    return res;
+}
+
 void vec3_print(struct vec3 v)
 {
     printf("(%f, %f, %f)\n", v.x, v.y, v.z);
@@ -347,3 +399,11 @@ void mat4_print(struct mat4 m)
             m.m31, m.m32, m.m33, m.m34,
             m.m41, m.m42, m.m43, m.m44);
 }
+
+const struct vec3 VEC3_ZERO =    { 0.0f, 0.0f, 0.0f  };
+const struct vec3 VEC3_UP =      { 0.0f, 1.0f, 0.0f  };
+const struct vec3 VEC3_DOWN =    { 0.0f, -1.0f, 0.0f };
+const struct vec3 VEC3_RIGHT =   { 1.0f, 0.0f, 0.0f  };
+const struct vec3 VEC3_LEFT =    { -1.0f, 0.0f, 0.0f };
+const struct vec3 VEC3_FORWARD = { 0.0f, 0.0f, 1.0f  };
+const struct vec3 VEC3_BACK =    { 0.0f, 0.0f, -1.0f };
