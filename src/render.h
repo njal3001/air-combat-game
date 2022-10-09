@@ -1,8 +1,10 @@
 #pragma once
 #include <GL/glew.h>
+#include <GLFW/glfw3.h>
 #include <stdint.h>
 #include <stdbool.h>
 #include "spatial.h"
+#include "transform.h"
 
 struct color
 {
@@ -34,7 +36,12 @@ struct mesh
     size_t index_count;
 };
 
-bool render_init();
+struct camera
+{
+    struct transform transform;
+};
+
+bool render_init(GLFWwindow *window);
 void render_shutdown();
 
 struct texture create_texture(const char *img_path);
@@ -54,6 +61,8 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
         float uvx_d, float uvy_d);
 
 void render_mesh(const struct mesh *mesh);
+
+struct camera *get_camera();
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a);
 

@@ -15,6 +15,9 @@
 #define MAX_VERTICES 1024
 #define MAX_INDICES 2048
 
+#define FOV (M_PI / 4.0f)
+#define ASPECT_RATIO (640.0f / 480.0f)
+
 const char *vert_shader_str =
     "#version 330 core\n"
     "layout (location = 0) in vec3 a_pos;\n"
@@ -58,13 +61,20 @@ GLint u_view_location;
 GLint u_projection_location;
 GLint u_sampler_location;
 
+struct mat4 model;
+struct mat4 projection;
+
+struct camera camera;
+
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
 
 static void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy);
 
-bool render_init()
+static void on_window_size_changed(GLFWwindow *window, int width, int height);
+
+bool render_init(GLFWwindow *window)
 {
     // Debug messages
     glEnable(GL_DEBUG_OUTPUT);
@@ -162,6 +172,16 @@ bool render_init()
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)(pos_size + color_size));
     glEnableVertexAttribArray(2);
 
+    // Window resize callback
+    glfwSetWindowSizeCallback(window, on_window_size_changed);
+
+    // Initialize matrices
+    model = mat4_identity();
+    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 100.0f);
+
+    camera.transform = transform_create(vec3_create(0.0f, 0.0f, 10.0f));
+    camera.transform.rot.y = M_PI;
+
     return true;
 }
 
@@ -225,12 +245,17 @@ void render_end()
     index_map = NULL;
 }
 
-void render_flush(struct mat4 *model, struct mat4 *view, struct mat4 *projection)
+void render_flush()
 {
+    // Calculate view matrix from camera transform
+    struct mat4 view_rot = mat4_mul(mat4_rotz(camera.transform.rot.z),
+            mat4_mul(mat4_roty(camera.transform.rot.y - M_PI), mat4_rotx(-camera.transform.rot.x)));
+    struct mat4 view = mat4_mul(view_rot, mat4_translate(vec3_neg(camera.transform.pos)));
+
     // Upload uniforms
-    glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model->m11);
-    glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view->m11);
-    glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection->m11);
+    glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model.m11);
+    glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
+    glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection.m11);
 
     glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_SHORT, 0);
 
@@ -299,6 +324,11 @@ void render_mesh(const struct mesh *mesh)
     index_count += mesh->index_count;
 }
 
+struct camera *get_camera()
+{
+    return &camera;
+}
+
 void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy)
 {
     vertex_map->pos.x = x;
@@ -322,11 +352,26 @@ struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     return c;
 }
 
-const struct color COLOR_WHITE = { 255, 255, 255, 255 };
-const struct color COLOR_BLACK = { 0, 0, 0, 255       };
-const struct color COLOR_RED =   { 255, 0, 0, 255     };
-const struct color COLOR_GREEN = { 0, 255, 0, 255     };
-const struct color COLOR_BLUE =  { 0, 0, 255, 255     };
+void on_window_size_changed(GLFWwindow *window, int width, int height)
+{
+    // Preserve aspect ratio
+    float vw, vh;
+    if (width / ASPECT_RATIO > height)
+    {
+        vw = height * ASPECT_RATIO;
+        vh = height;
+    }
+    else
+    {
+        vw = width;
+        vh = width / ASPECT_RATIO;
+    }
+
+    float vx = (width - vw) / 2.0f;
+    float vy = (height - vh) / 2.0f;
+
+    glViewport(vx, vy, vw, vh);
+}
 
 void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
@@ -401,3 +446,9 @@ void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
         printf("GL (%s) %s\n", type_name, message);
     }
 }
+
+const struct color COLOR_WHITE = { 255, 255, 255, 255 };
+const struct color COLOR_BLACK = { 0, 0, 0, 255       };
+const struct color COLOR_RED =   { 255, 0, 0, 255     };
+const struct color COLOR_GREEN = { 0, 255, 0, 255     };
+const struct color COLOR_BLUE =  { 0, 0, 255, 255     };
