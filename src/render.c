@@ -66,11 +66,16 @@ struct mat4 projection;
 
 struct camera camera;
 
+#define MAX_MSTACK 32
+struct mat4 mstack[MAX_MSTACK];
+size_t mstack_size;
+struct mat4 mstack_top;
+
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
 
-static void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy);
+static void push_vertex(struct vec3 pos, struct color c, float uvx, float uvy);
 
 static void on_window_size_changed(GLFWwindow *window, int width, int height);
 
@@ -177,10 +182,12 @@ bool render_init(GLFWwindow *window)
 
     // Initialize matrices
     model = mat4_identity();
-    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 100.0f);
+    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 1000.0f);
 
     camera.transform = transform_create(vec3_create(0.0f, 0.0f, 10.0f));
     camera.transform.rot.y = M_PI;
+
+    mstack_top = mat4_identity();
 
     return true;
 }
@@ -263,13 +270,32 @@ void render_flush()
     index_count = 0;
 }
 
+
+void render_mpush(const struct mat4 *m)
+{
+    assert(mstack_size < MAX_MSTACK);
+
+    memcpy(mstack + mstack_size, &mstack_top, sizeof(struct mat4));
+    mstack_size++;
+
+    mstack_top = mat4_mul(mstack_top, *m);
+}
+
+void render_mpop()
+{
+    assert(mstack_size > 0);
+
+    mstack_size--;
+    mstack_top = mstack[mstack_size];
+}
+
 void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
         struct color col_a, struct color col_b, struct color col_c,
         float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c)
 {
-    make_vertex(a.x, a.y, a.z, col_a, uvx_a, uvy_a);
-    make_vertex(b.x, b.y, b.z, col_b, uvx_b, uvy_b);
-    make_vertex(c.x, c.y, c.z, col_c, uvx_c, uvy_c);
+    push_vertex(a, col_a, uvx_a, uvy_a);
+    push_vertex(b, col_b, uvx_b, uvy_b);
+    push_vertex(c, col_c, uvx_c, uvy_c);
 
     *index_map = vertex_count;
     index_map++;
@@ -287,10 +313,10 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
         float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c,
         float uvx_d, float uvy_d)
 {
-    make_vertex(a.x, a.y, a.z, col_a, uvx_a, uvy_a);
-    make_vertex(b.x, b.y, b.z, col_b, uvx_b, uvy_b);
-    make_vertex(c.x, c.y, c.z, col_c, uvx_c, uvy_c);
-    make_vertex(d.x, d.y, d.z, col_d, uvx_d, uvy_d);
+    push_vertex(a, col_a, uvx_a, uvy_a);
+    push_vertex(b, col_b, uvx_b, uvy_b);
+    push_vertex(c, col_c, uvx_c, uvy_c);
+    push_vertex(d, col_d, uvx_d, uvy_d);
 
     *index_map = vertex_count;
     index_map++;
@@ -311,8 +337,11 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
 
 void render_mesh(const struct mesh *mesh)
 {
-    memcpy(vertex_map, mesh->vertices, mesh->vertex_count * sizeof(struct vertex));
-    vertex_map += mesh->vertex_count;
+    for (size_t i = 0; i < mesh->vertex_count; i++)
+    {
+        struct vertex *v = mesh->vertices + i;
+        push_vertex(v->pos, v->col, v->uvx, v->uvy);
+    }
 
     for (size_t i = 0; i < mesh->index_count; i++)
     {
@@ -329,11 +358,9 @@ struct camera *get_camera()
     return &camera;
 }
 
-void make_vertex(float x, float y, float z, struct color c, float uvx, float uvy)
+void push_vertex(struct vec3 pos, struct color c, float uvx, float uvy)
 {
-    vertex_map->pos.x = x;
-    vertex_map->pos.y = y;
-    vertex_map->pos.z = z;
+    vertex_map->pos = mat4_vmul(mstack_top, pos);
     vertex_map->col = c;
     vertex_map->uvx = uvx;
     vertex_map->uvy = uvy;

@@ -48,6 +48,7 @@ struct mat4 mat4_create(
         float m41, float m42, float m43, float m44);
 struct mat4 mat4_zero();
 struct mat4 mat4_identity();
+// TODO: Should probably pass const pointers instead
 struct mat4 mat4_add(struct mat4 lhs, struct mat4 rhs);
 struct mat4 mat4_sub(struct mat4 lhs, struct mat4 rhs);
 struct mat4 mat4_mul(struct mat4 lhs, struct mat4 rhs);

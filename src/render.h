@@ -50,6 +50,9 @@ void render_begin();
 void render_end();
 void render_flush();
 
+void render_mpush(const struct mat4 *m);
+void render_mpop();
+
 void bind_texture(const struct texture *texture, size_t index);
 
 void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
@@ -61,6 +64,7 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
         float uvx_d, float uvy_d);
 
 void render_mesh(const struct mesh *mesh);
+
 
 struct camera *get_camera();
 

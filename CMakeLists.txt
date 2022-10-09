@@ -15,6 +15,10 @@ add_executable(air-combat
     src/render.c
     src/transform.h
     src/transform.c
+    src/game.h
+    src/game.c
+    src/fighter.h
+    src/fighter.c
 )
 
 include_directories(${GLEW_INCLUDE_DIRS})
