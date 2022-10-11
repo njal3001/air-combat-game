@@ -44,13 +44,16 @@ struct camera
 bool render_init(GLFWwindow *window);
 void render_shutdown();
 
-struct texture create_texture(const char *img_path);
+struct texture texture_create(const char *img_path);
+void texture_free(struct texture *texture);
+struct mesh mesh_create(const char *obj_path);
+void mesh_free(struct mesh *mesh);
 
 void render_begin();
 void render_end();
 void render_flush();
 
-void render_mpush(const struct mat4 *m);
+void render_mpush(struct mat4 m);
 void render_mpop();
 
 void bind_texture(const struct texture *texture, size_t index);

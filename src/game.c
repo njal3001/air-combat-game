@@ -38,12 +38,16 @@ bool game_init()
 
 void game_run()
 {
-    struct texture tex = create_texture("../assets/wall.jpg");
+    struct texture tex = texture_create("../assets/wall.jpg");
     bind_texture(&tex, 0);
+
+    // struct mesh mesh = mesh_create("../assets/WWIairplane.obj");
 
     struct fighter fighter;
     fighter_init(&fighter, VEC3_ZERO);
 
+    struct camera *cam = get_camera();
+    cam->transform.pos.z = 50;
     while (!glfwWindowShouldClose(window))
     {
         fighter_update(&fighter, 1.0f);
@@ -78,6 +82,8 @@ void game_run()
     }
 
     fighter_free(&fighter);
+    texture_free(&tex);
+    // mesh_free(&mesh);
 }
 
 void game_shutdown()

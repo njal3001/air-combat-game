@@ -1,6 +1,7 @@
 #include "render.h"
 #include <stdbool.h>
 #include <stdio.h>
+#include <errno.h>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../third_party/stb_image.h"
@@ -12,8 +13,8 @@
 #    define APIENTRY
 #endif
 
-#define MAX_VERTICES 1024
-#define MAX_INDICES 2048
+#define MAX_VERTICES 65536
+#define MAX_INDICES 131072
 
 #define FOV (M_PI / 4.0f)
 #define ASPECT_RATIO (640.0f / 480.0f)
@@ -199,7 +200,7 @@ void render_shutdown()
     glDeleteVertexArrays(1, &vao_id);
 }
 
-struct texture create_texture(const char *img_path)
+struct texture texture_create(const char *img_path)
 {
     int width, height, nchannels;
     unsigned char *data = stbi_load(img_path, &width, &height, &nchannels, 0);
@@ -232,6 +233,120 @@ struct texture create_texture(const char *img_path)
     };
 }
 
+void texture_free(struct texture *texture)
+{
+    glDeleteTextures(1, &texture->id);
+}
+
+struct mesh mesh_create(const char *obj_path)
+{
+    FILE *f = fopen(obj_path, "r");
+    if (!f)
+    {
+        printf("Could not read file: %s (%s)\n", obj_path, strerror(errno));
+        return (struct mesh)
+        {
+            .vertices = NULL,
+            .indices = NULL,
+            .vertex_count = 0,
+            .index_count = 0,
+        };
+    }
+
+    struct mesh mesh;
+    mesh.vertex_count = 0;
+    mesh.index_count = 0;
+
+    // Determine number of vertices and indicies
+    char *line = NULL;
+    size_t blength = 0;
+    int read;
+    while ((read = getline(&line, &blength, f)) != -1)
+    {
+        if (!read || line[0] == '#')
+        {
+            continue;
+        }
+
+        if (line[0] == 'v' && line[1] == ' ')
+        {
+            mesh.vertex_count++;
+        }
+        else if (line[0] == 'f')
+        {
+            mesh.index_count += 3;
+        }
+    }
+
+    // Prepare to read file again
+    rewind(f);
+
+    mesh.vertices = malloc(mesh.vertex_count * sizeof(struct vertex));
+    mesh.indices = malloc(mesh.index_count * sizeof(GLushort));
+
+    // Add data
+    size_t current_vertex = 0;
+    size_t current_index = 0;
+    while ((read = getline(&line, &blength, f)) != -1)
+    {
+        if (!read || line[0] == '#')
+        {
+            continue;
+        }
+
+        if (line[0] == 'v' && line[1] == ' ')
+        {
+            char *xs = strtok(line + 2, " ");
+            char *ys = strtok(NULL, " ");
+            char *zs = strtok(NULL, " ");
+
+            struct vertex *v = mesh.vertices + current_vertex;
+            v->pos.x = strtof(xs, NULL);
+            v->pos.y = strtof(ys, NULL);
+            v->pos.z = strtof(zs, NULL);
+            v->col = COLOR_WHITE;
+
+            // TODO: Read uvs
+            v->uvx = 0.0f;
+            v->uvy = 0.0f;
+
+            current_vertex++;
+        }
+        else if (line[0] == 'f')
+        {
+            char  *s = strtok(line + 2, " ");
+            while (s && *s != '\n')
+            {
+                char *end = s;
+                while (*end)
+                {
+                    if (*end == '/')
+                    {
+                        *end = '\0';
+                        break;
+                    }
+
+                    end++;
+                }
+
+                mesh.indices[current_index++] = strtol(s, NULL, 10) - 1;
+
+                s = strtok(NULL, " ");
+            }
+        }
+    }
+
+    free(line);
+
+    return mesh;
+}
+
+void mesh_free(struct mesh *mesh)
+{
+    free(mesh->indices);
+    free(mesh->vertices);
+}
+
 void bind_texture(const struct texture *texture, size_t index)
 {
     glActiveTexture(GL_TEXTURE0 + index);
@@ -259,6 +374,7 @@ void render_flush()
             mat4_mul(mat4_roty(camera.transform.rot.y - M_PI), mat4_rotx(-camera.transform.rot.x)));
     struct mat4 view = mat4_mul(view_rot, mat4_translate(vec3_neg(camera.transform.pos)));
 
+    // struct mat4 view = mat4_identity();
     // Upload uniforms
     glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model.m11);
     glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
@@ -271,14 +387,14 @@ void render_flush()
 }
 
 
-void render_mpush(const struct mat4 *m)
+void render_mpush(struct mat4 m)
 {
     assert(mstack_size < MAX_MSTACK);
 
     memcpy(mstack + mstack_size, &mstack_top, sizeof(struct mat4));
     mstack_size++;
 
-    mstack_top = mat4_mul(mstack_top, *m);
+    mstack_top = mat4_mul(mstack_top, m);
 }
 
 void render_mpop()
