@@ -8,23 +8,37 @@ struct transform transform_create(struct vec3 pos)
     {
         .pos = pos,
         .scale = vec3_create(1.0f, 1.0f, 1.0f),
-        .rot = VEC3_ZERO,
+        .rot = mat4_identity(),
     };
 }
 
 struct vec3 transform_forward(const struct transform *t)
 {
-    struct vec3 res;
-    res.x = -cosf(t->rot.x) * sinf(t->rot.y);
-    res.y = sinf(t->rot.x);
-    res.z = cosf(t->rot.y) * cosf(t->rot.x);
-
-    return vec3_normalize(res);
+    return mat4_vmul(t->rot, VEC3_FORWARD);
 }
 
-struct mat4 transform_matrix(struct transform *t)
+struct vec3 transform_up(const struct transform *t)
 {
-    struct mat4 rot = mat4_mul(mat4_rotz(t->rot.z),
-            mat4_mul(mat4_roty(t->rot.y), mat4_rotx(t->rot.x)));
-    return mat4_mul(mat4_mul(mat4_translate(t->pos), rot), mat4_scale(t->scale));
+    return mat4_vmul(t->rot, VEC3_UP);
+}
+
+struct mat4 transform_matrix(const struct transform *t)
+{
+     return mat4_mul(mat4_mul(mat4_translate(t->pos),
+                 t->rot), mat4_scale(t->scale));
+}
+
+void transform_local_rotx(struct transform *t, float delta)
+{
+    t->rot = mat4_mul(t->rot, mat4_rotx(delta));
+}
+
+void transform_local_roty(struct transform *t, float delta)
+{
+    t->rot = mat4_mul(t->rot, mat4_roty(delta));
+}
+
+void transform_local_rotz(struct transform *t, float delta)
+{
+    t->rot = mat4_mul(t->rot, mat4_rotz(delta));
 }

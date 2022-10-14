@@ -324,6 +324,33 @@ struct mat4 mat4_rotz(float rad)
     return res;
 }
 
+struct mat4 mat4_rot(float rad, struct vec3 axis)
+{
+    float c = cosf(rad);
+    float co = 1.0f - c;
+    float s = sinf(rad);
+
+    float x = axis.x;
+    float y = axis.y;
+    float z = axis.z;
+
+    struct mat4 res = mat4_zero();
+    res.m11 = c + x * x * co;
+    res.m12 = x * y * co - z * s;
+    res.m13 = x * z * co + y * s;
+
+    res.m21 = y * x * co + z * s;
+    res.m22 = c + y * y * co;
+    res.m23 = y * z * co - x * s;
+
+    res.m31 = z * x * co - y * s;
+    res.m32 = z * y * co + x * s;
+    res.m33 = c + z * z * co;
+    res.m44 = 1.0f;
+
+    return res;
+}
+
 struct mat4 mat4_ortho(float left, float right, float bottom, float top, float near, float far)
 {
     struct mat4 res = mat4_zero();
@@ -359,7 +386,6 @@ struct mat4 mat4_lookat(struct vec3 at, struct vec3 target, struct vec3 up)
     struct vec3 yaxis = vec3_cross(zaxis, xaxis);
 
     struct mat4 res;
-
     res.m11 = xaxis.x;
     res.m12 = xaxis.y;
     res.m13 = xaxis.z;
@@ -371,7 +397,7 @@ struct mat4 mat4_lookat(struct vec3 at, struct vec3 target, struct vec3 up)
     res.m24 = -vec3_dot(yaxis, at);
 
     res.m31 = zaxis.x;
-    res.m32 = yaxis.y;
+    res.m32 = zaxis.y;
     res.m33 = zaxis.z;
     res.m34 = -vec3_dot(zaxis, at);
 
@@ -379,6 +405,29 @@ struct mat4 mat4_lookat(struct vec3 at, struct vec3 target, struct vec3 up)
     res.m42 = 0.0f;
     res.m43 = 0.0f;
     res.m44 = 1.0f;
+
+    return res;
+}
+
+struct mat4 mat4_transpose(struct mat4 m)
+{
+    struct mat4 res;
+    res.m11 = m.m11;
+    res.m12 = m.m21;
+    res.m13 = m.m31;
+    res.m14 = m.m41;
+    res.m21 = m.m12;
+    res.m22 = m.m22;
+    res.m23 = m.m32;
+    res.m24 = m.m42;
+    res.m31 = m.m13;
+    res.m32 = m.m23;
+    res.m33 = m.m33;
+    res.m34 = m.m43;
+    res.m41 = m.m14;
+    res.m42 = m.m24;
+    res.m43 = m.m34;
+    res.m44 = m.m44;
 
     return res;
 }

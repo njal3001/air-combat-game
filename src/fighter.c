@@ -8,8 +8,8 @@
 void fighter_init(struct fighter *fighter, struct vec3 pos)
 {
     fighter->transform = transform_create(pos);
-    fighter->speed = 0.1f;
-    fighter->rotation_speed = 0.01f;
+    fighter->speed = 0.5f;
+    fighter->rotation_speed = 0.015f;
 
     fighter->mesh = mesh_create("../assets/WWIairplane.obj");
 }
@@ -18,45 +18,38 @@ void fighter_update(struct fighter *fighter, float dt)
 {
     GLFWwindow *window = get_window();
 
+    struct camera *cam = get_camera();
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
     {
-        fighter->transform.rot.x += fighter->rotation_speed;
+        transform_local_rotx(&fighter->transform, -fighter->rotation_speed);
     }
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
     {
-        fighter->transform.rot.x -= fighter->rotation_speed;
+        transform_local_rotx(&fighter->transform, fighter->rotation_speed);
     }
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
     {
-        fighter->transform.rot.y += fighter->rotation_speed;
+        transform_local_roty(&fighter->transform, -fighter->rotation_speed);
     }
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
     {
-        fighter->transform.rot.y -= fighter->rotation_speed;
+        transform_local_roty(&fighter->transform, fighter->rotation_speed);
     }
     if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
     {
-        // TODO: Should it not be add?
-        fighter->transform.rot.z -= fighter->rotation_speed;
+        transform_local_rotz(&fighter->transform, -fighter->rotation_speed);
     }
     if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
     {
-        fighter->transform.rot.z += fighter->rotation_speed;
+        transform_local_rotz(&fighter->transform, fighter->rotation_speed);
     }
 
     struct vec3 forward = transform_forward(&fighter->transform);
     vec3_add_eq(&fighter->transform.pos, vec3_mul(forward, fighter->speed));
 
-    struct camera *cam = get_camera();
-    cam->transform.pos.x = fighter->transform.pos.x;
-    cam->transform.pos.y = fighter->transform.pos.y + 20.0f;
-    cam->transform.pos.z = fighter->transform.pos.z;
-
-    cam->transform.rot.x = M_PI / 2.0f;
-    cam->transform.rot.y = 0.0f;
-    cam->transform.rot.z = 0.0f;
-
-    vec3_print(fighter->transform.pos);
+    cam->transform.rot = fighter->transform.rot;
+    cam->transform.pos = vec3_add(fighter->transform.pos,
+            vec3_mul(transform_up(&cam->transform), 4.0f));
 }
 
 void fighter_render(struct fighter *fighter)

@@ -58,9 +58,11 @@ struct mat4 mat4_translate(struct vec3 t);
 struct mat4 mat4_rotx(float rad);
 struct mat4 mat4_roty(float rad);
 struct mat4 mat4_rotz(float rad);
+struct mat4 mat4_rot(float rad, struct vec3 axis);
 struct mat4 mat4_ortho(float left, float right, float bottom, float top, float near, float far);
 struct mat4 mat4_perspective(float fov, float ratio, float near, float far);
 struct mat4 mat4_lookat(struct vec3 at, struct vec3 target, struct vec3 up);
+struct mat4 mat4_transpose(struct mat4 m);
 
 void vec3_print(struct vec3 v);
 void mat4_print(struct mat4 m);

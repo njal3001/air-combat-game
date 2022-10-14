@@ -185,8 +185,7 @@ bool render_init(GLFWwindow *window)
     model = mat4_identity();
     projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 1000.0f);
 
-    camera.transform = transform_create(vec3_create(0.0f, 0.0f, 10.0f));
-    camera.transform.rot.y = M_PI;
+    camera.transform = transform_create(vec3_create(0.0f, 0.0f, -30.0f));
 
     mstack_top = mat4_identity();
 
@@ -369,12 +368,13 @@ void render_end()
 
 void render_flush()
 {
-    // Calculate view matrix from camera transform
-    struct mat4 view_rot = mat4_mul(mat4_rotz(camera.transform.rot.z),
-            mat4_mul(mat4_roty(camera.transform.rot.y - M_PI), mat4_rotx(-camera.transform.rot.x)));
-    struct mat4 view = mat4_mul(view_rot, mat4_translate(vec3_neg(camera.transform.pos)));
+    // Calculate view matrix
+    struct vec3 cam_forward = transform_forward(&camera.transform);
+    struct vec3 cam_up = transform_up(&camera.transform);
+    struct vec3 cam_target = vec3_add(camera.transform.pos, cam_forward);
 
-    // struct mat4 view = mat4_identity();
+    struct mat4 view = mat4_lookat(camera.transform.pos, cam_target, cam_up);
+
     // Upload uniforms
     glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model.m11);
     glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
