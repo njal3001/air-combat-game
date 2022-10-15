@@ -368,12 +368,7 @@ void render_end()
 
 void render_flush()
 {
-    // Calculate view matrix
-    struct vec3 cam_forward = transform_forward(&camera.transform);
-    struct vec3 cam_up = transform_up(&camera.transform);
-    struct vec3 cam_target = vec3_add(camera.transform.pos, cam_forward);
-
-    struct mat4 view = mat4_lookat(camera.transform.pos, cam_target, cam_up);
+    struct mat4 view = camera_view(&camera);
 
     // Upload uniforms
     glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model.m11);

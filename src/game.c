@@ -2,15 +2,17 @@
 #include <stdio.h>
 #include "render.h"
 #include "fighter.h"
+#include "input.h"
 
 GLFWwindow *window;
+bool camera_free;
 
 bool game_init()
 {
     if (!glfwInit())
         return false;
 
-    window = glfwCreateWindow(640, 480, "WW1 Air Combat!", NULL, NULL);
+    window = glfwCreateWindow(640, 480, "Air Combat!", NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -33,6 +35,8 @@ bool game_init()
         return false;
     }
 
+    input_init(window);
+
     return true;
 }
 
@@ -41,16 +45,27 @@ void game_run()
     struct texture tex = texture_create("../assets/wall.jpg");
     bind_texture(&tex, 0);
 
-    // struct mesh mesh = mesh_create("../assets/WWIairplane.obj");
-
     struct fighter fighter;
     fighter_init(&fighter, VEC3_ZERO);
 
-    struct camera *cam = get_camera();
-    cam->transform.pos.z = 50;
     while (!glfwWindowShouldClose(window))
     {
-        fighter_update(&fighter, 1.0f);
+        input_update(window);
+
+        // NOTE: Debug only
+        if (key_pressed(GLFW_KEY_ESCAPE))
+        {
+            camera_free = !camera_free;
+        }
+
+        if (camera_free)
+        {
+            camera_free_update(get_camera());
+        }
+        else
+        {
+            fighter_update(&fighter, 1.0f);
+        }
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 

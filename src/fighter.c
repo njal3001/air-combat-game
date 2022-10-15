@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include "game.h"
 #include "render.h"
+#include "input.h"
 
 void fighter_init(struct fighter *fighter, struct vec3 pos)
 {
@@ -16,30 +17,28 @@ void fighter_init(struct fighter *fighter, struct vec3 pos)
 
 void fighter_update(struct fighter *fighter, float dt)
 {
-    GLFWwindow *window = get_window();
-
     struct camera *cam = get_camera();
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+    if (key_down(GLFW_KEY_W))
     {
         transform_local_rotx(&fighter->transform, -fighter->rotation_speed);
     }
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+    if (key_down(GLFW_KEY_S))
     {
         transform_local_rotx(&fighter->transform, fighter->rotation_speed);
     }
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+    if (key_down(GLFW_KEY_D))
     {
         transform_local_roty(&fighter->transform, -fighter->rotation_speed);
     }
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+    if (key_down(GLFW_KEY_A))
     {
         transform_local_roty(&fighter->transform, fighter->rotation_speed);
     }
-    if (glfwGetKey(window, GLFW_KEY_Q) == GLFW_PRESS)
+    if (key_down(GLFW_KEY_Q))
     {
         transform_local_rotz(&fighter->transform, -fighter->rotation_speed);
     }
-    if (glfwGetKey(window, GLFW_KEY_E) == GLFW_PRESS)
+    if (key_down(GLFW_KEY_E))
     {
         transform_local_rotz(&fighter->transform, fighter->rotation_speed);
     }

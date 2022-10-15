@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "spatial.h"
 #include "transform.h"
+#include "camera.h"
 
 struct color
 {
@@ -34,11 +35,6 @@ struct mesh
     GLushort *indices;
     size_t vertex_count;
     size_t index_count;
-};
-
-struct camera
-{
-    struct transform transform;
 };
 
 bool render_init(GLFWwindow *window);
