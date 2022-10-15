@@ -18,6 +18,7 @@ struct color
 struct vertex
 {
     struct vec3 pos;
+    struct vec3 norm;
     struct color col;
     float uvx;
     float uvy;
@@ -35,15 +36,11 @@ struct mesh
     GLushort *indices;
     size_t vertex_count;
     size_t index_count;
+    const struct texture *texture;
 };
 
 bool render_init(GLFWwindow *window);
 void render_shutdown();
-
-struct texture texture_create(const char *img_path);
-void texture_free(struct texture *texture);
-struct mesh mesh_create(const char *obj_path);
-void mesh_free(struct mesh *mesh);
 
 void render_begin();
 void render_end();
@@ -52,7 +49,7 @@ void render_flush();
 void render_mpush(struct mat4 m);
 void render_mpop();
 
-void bind_texture(const struct texture *texture, size_t index);
+void set_texture(const struct texture *texture);
 
 void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
         struct color col_a, struct color col_b, struct color col_c,

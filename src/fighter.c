@@ -5,6 +5,7 @@
 #include "game.h"
 #include "render.h"
 #include "input.h"
+#include "assets.h"
 
 void fighter_init(struct fighter *fighter, struct vec3 pos)
 {
@@ -12,7 +13,7 @@ void fighter_init(struct fighter *fighter, struct vec3 pos)
     fighter->speed = 0.5f;
     fighter->rotation_speed = 0.015f;
 
-    fighter->mesh = mesh_create("../assets/WWIairplane.obj");
+    fighter->mesh = get_mesh("cube.ply");
 }
 
 void fighter_update(struct fighter *fighter, float dt)
@@ -54,12 +55,6 @@ void fighter_update(struct fighter *fighter, float dt)
 void fighter_render(struct fighter *fighter)
 {
     render_mpush(transform_matrix(&fighter->transform));
-    render_mesh(&fighter->mesh);
+    render_mesh(fighter->mesh);
     render_mpop();
-}
-
-void fighter_free(struct fighter *fighter)
-{
-    free(fighter->mesh.vertices);
-    free(fighter->mesh.indices);
 }

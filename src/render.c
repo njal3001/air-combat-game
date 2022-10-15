@@ -2,9 +2,9 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include <errno.h>
-
-#define STB_IMAGE_IMPLEMENTATION
-#include "../third_party/stb_image.h"
+#include <assert.h>
+#include <string.h>
+#include <math.h>
 
 #ifdef _WIN32
 #    define WIN32_LEAN_AND_MEAN
@@ -22,8 +22,9 @@
 const char *vert_shader_str =
     "#version 330 core\n"
     "layout (location = 0) in vec3 a_pos;\n"
-    "layout (location = 1) in vec4 a_col;\n"
-    "layout (location = 2) in vec2 a_uv;\n"
+    "layout (location = 1) in vec3 a_norm;\n"
+    "layout (location = 2) in vec4 a_col;\n"
+    "layout (location = 3) in vec2 a_uv;\n"
     "uniform mat4 model;\n"
     "uniform mat4 view;\n"
     "uniform mat4 projection;\n"
@@ -51,6 +52,7 @@ size_t vertex_count;
 size_t index_count;
 struct vertex *vertex_map;
 GLushort *index_map;
+const struct texture *current_texture;
 
 GLuint vao_id;
 GLuint vbo_id;
@@ -167,16 +169,21 @@ bool render_init(GLFWwindow *window)
 
     // Vertex attributes
     size_t pos_size = 3 * sizeof(GLfloat);
+    size_t norm_size = 3 * sizeof(GLfloat);
     size_t color_size = 4 * sizeof(GLubyte);
     size_t uv_size = 2 * sizeof(GLfloat);
-    size_t stride = pos_size + color_size + uv_size;
+    size_t stride = pos_size + norm_size + color_size + uv_size;
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)NULL);
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride, (const GLvoid*)pos_size);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)pos_size);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)(pos_size + color_size));
+    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride,
+            (const GLvoid*)pos_size + norm_size);
     glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride,
+            (const GLvoid*)(pos_size + norm_size + color_size));
+    glEnableVertexAttribArray(3);
 
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
@@ -197,159 +204,26 @@ void render_shutdown()
     glDeleteBuffers(1, &vbo_id);
     glDeleteBuffers(1, &ebo_id);
     glDeleteVertexArrays(1, &vao_id);
+    glDeleteProgram(shader_id);
 }
 
-struct texture texture_create(const char *img_path)
+void set_texture(const struct texture *texture)
 {
-    int width, height, nchannels;
-    unsigned char *data = stbi_load(img_path, &width, &height, &nchannels, 0);
-
-    if (!data)
+    if (current_texture != texture)
     {
-        return (struct texture)
+        // Flush vertices using current texture
+        if (current_texture && vertex_count > 0)
         {
-            .id = 0,
-            .width = 0,
-            .height = 0,
-        };
+            render_end();
+            render_flush();
+            render_begin();
+        }
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture->id);
+
+        current_texture = texture;
     }
-
-    GLuint tex_id;
-    glGenTextures(1, &tex_id);
-
-    glBindTexture(GL_TEXTURE_2D, tex_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    stbi_image_free(data);
-
-    return (struct texture)
-    {
-        .id = tex_id,
-        .width = width,
-        .height = height,
-    };
-}
-
-void texture_free(struct texture *texture)
-{
-    glDeleteTextures(1, &texture->id);
-}
-
-struct mesh mesh_create(const char *obj_path)
-{
-    FILE *f = fopen(obj_path, "r");
-    if (!f)
-    {
-        printf("Could not read file: %s (%s)\n", obj_path, strerror(errno));
-        return (struct mesh)
-        {
-            .vertices = NULL,
-            .indices = NULL,
-            .vertex_count = 0,
-            .index_count = 0,
-        };
-    }
-
-    struct mesh mesh;
-    mesh.vertex_count = 0;
-    mesh.index_count = 0;
-
-    // Determine number of vertices and indicies
-    char *line = NULL;
-    size_t blength = 0;
-    int read;
-    while ((read = getline(&line, &blength, f)) != -1)
-    {
-        if (!read || line[0] == '#')
-        {
-            continue;
-        }
-
-        if (line[0] == 'v' && line[1] == ' ')
-        {
-            mesh.vertex_count++;
-        }
-        else if (line[0] == 'f')
-        {
-            mesh.index_count += 3;
-        }
-    }
-
-    // Prepare to read file again
-    rewind(f);
-
-    mesh.vertices = malloc(mesh.vertex_count * sizeof(struct vertex));
-    mesh.indices = malloc(mesh.index_count * sizeof(GLushort));
-
-    // Add data
-    size_t current_vertex = 0;
-    size_t current_index = 0;
-    while ((read = getline(&line, &blength, f)) != -1)
-    {
-        if (!read || line[0] == '#')
-        {
-            continue;
-        }
-
-        if (line[0] == 'v' && line[1] == ' ')
-        {
-            char *xs = strtok(line + 2, " ");
-            char *ys = strtok(NULL, " ");
-            char *zs = strtok(NULL, " ");
-
-            struct vertex *v = mesh.vertices + current_vertex;
-            v->pos.x = strtof(xs, NULL);
-            v->pos.y = strtof(ys, NULL);
-            v->pos.z = strtof(zs, NULL);
-            v->col = COLOR_WHITE;
-
-            // TODO: Read uvs
-            v->uvx = 0.0f;
-            v->uvy = 0.0f;
-
-            current_vertex++;
-        }
-        else if (line[0] == 'f')
-        {
-            char  *s = strtok(line + 2, " ");
-            while (s && *s != '\n')
-            {
-                char *end = s;
-                while (*end)
-                {
-                    if (*end == '/')
-                    {
-                        *end = '\0';
-                        break;
-                    }
-
-                    end++;
-                }
-
-                mesh.indices[current_index++] = strtol(s, NULL, 10) - 1;
-
-                s = strtok(NULL, " ");
-            }
-        }
-    }
-
-    free(line);
-
-    return mesh;
-}
-
-void mesh_free(struct mesh *mesh)
-{
-    free(mesh->indices);
-    free(mesh->vertices);
-}
-
-void bind_texture(const struct texture *texture, size_t index)
-{
-    glActiveTexture(GL_TEXTURE0 + index);
-    glBindTexture(GL_TEXTURE_2D, texture->id);
 }
 
 void render_begin()
@@ -379,6 +253,7 @@ void render_flush()
 
     vertex_count = 0;
     index_count = 0;
+    current_texture = NULL;
 }
 
 
@@ -448,6 +323,11 @@ void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
 
 void render_mesh(const struct mesh *mesh)
 {
+    if (mesh->texture)
+    {
+        set_texture(mesh->texture);
+    }
+
     for (size_t i = 0; i < mesh->vertex_count; i++)
     {
         struct vertex *v = mesh->vertices + i;

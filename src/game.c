@@ -3,7 +3,9 @@
 #include "render.h"
 #include "fighter.h"
 #include "input.h"
+#include "assets.h"
 
+const char *app_name;
 GLFWwindow *window;
 bool camera_free;
 
@@ -36,14 +38,14 @@ bool game_init()
     }
 
     input_init(window);
+    assets_init();
 
     return true;
 }
 
 void game_run()
 {
-    struct texture tex = texture_create("../assets/wall.jpg");
-    bind_texture(&tex, 0);
+    const struct texture *tex = get_texture("wall.jpg");
 
     struct fighter fighter;
     fighter_init(&fighter, VEC3_ZERO);
@@ -71,6 +73,7 @@ void game_run()
 
         render_begin();
 
+        set_texture(tex);
         render_quad(
                 vec3_create(-100.0, -100.0f, -100.0f),
                 vec3_create(-100.0, -100.0f, 100.0f),
@@ -95,10 +98,6 @@ void game_run()
         glfwSwapBuffers(window);
         glfwPollEvents();
     }
-
-    fighter_free(&fighter);
-    texture_free(&tex);
-    // mesh_free(&mesh);
 }
 
 void game_shutdown()

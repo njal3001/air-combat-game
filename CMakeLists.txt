@@ -23,6 +23,12 @@ add_executable(air-combat
     src/camera.c
     src/input.h
     src/input.c
+    src/assets.h
+    src/assets.c
+    src/platform.h
+    src/platform.c
+    src/hashmap.h
+    src/hashmap.c
 )
 
 include_directories(${GLEW_INCLUDE_DIRS})
