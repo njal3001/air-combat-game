@@ -40,19 +40,23 @@ void assets_init()
 void assets_free()
 {
     size_t num_textures = hashmap_size(textures);
-    struct texture *t = malloc(num_textures * sizeof(void*));
+    struct texture **t = malloc(num_textures * sizeof(void*));
+    hashmap_values(textures, (void**)t);
     for (size_t i = 0; i < num_textures; i++)
     {
-        texture_free(t + i);
+        texture_free(t[i]);
+        free(t[i]);
     }
 
     free(t);
 
     size_t num_meshes = hashmap_size(meshes);
-    struct texture *m = malloc(num_meshes * sizeof(void*));
+    struct mesh **m = malloc(num_meshes * sizeof(void*));
+    hashmap_values(meshes, (void**)m);
     for (size_t i = 0; i < num_meshes; i++)
     {
-        texture_free(m + i);
+        mesh_free(m[i]);
+        free(m[i]);
     }
 
     free(m);

@@ -102,6 +102,7 @@ void game_run()
 
 void game_shutdown()
 {
+    assets_free();
     render_shutdown();
     glfwTerminate();
 }

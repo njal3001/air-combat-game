@@ -121,8 +121,6 @@ void hashmap_free(struct hashmap *map)
             struct hashelem *elem = bucket->elements + e;
             free(elem->key);
         }
-
-        free(bucket->elements);
     }
 
     free(map->buckets);
