@@ -10,7 +10,7 @@
 void fighter_init(struct fighter *fighter, struct vec3 pos)
 {
     fighter->transform = transform_create(pos);
-    fighter->speed = 0.5f;
+    fighter->speed = 3.5f;
     fighter->rotation_speed = 0.015f;
 
     fighter->mesh = get_mesh("cube.mesh");
@@ -50,11 +50,14 @@ void fighter_update(struct fighter *fighter, float dt)
     cam->transform.rot = fighter->transform.rot;
     cam->transform.pos = vec3_add(fighter->transform.pos,
             vec3_mul(transform_up(&cam->transform), 4.0f));
+
+    printf("Pos: ");
+    vec3_print(fighter->transform.pos);
+
+    set_light_pos(fighter->transform.pos);
 }
 
 void fighter_render(struct fighter *fighter)
 {
-    render_mpush(transform_matrix(&fighter->transform));
-    render_mesh(fighter->mesh);
-    render_mpop();
+    render_mesh(fighter->mesh, &fighter->transform);
 }

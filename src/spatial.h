@@ -20,6 +20,14 @@ struct mat4
         {
             float vals[16];
         };
+        struct
+        {
+            struct
+            {
+                struct vec3 xyz;
+                float w;
+            } rows[4];
+        };
     };
 };
 
@@ -53,6 +61,7 @@ struct mat4 mat4_add(struct mat4 lhs, struct mat4 rhs);
 struct mat4 mat4_sub(struct mat4 lhs, struct mat4 rhs);
 struct mat4 mat4_mul(struct mat4 lhs, struct mat4 rhs);
 struct vec3 mat4_vmul(struct mat4 m, struct vec3 v);
+struct mat4 mat4_fmul(struct mat4 m, float f);
 struct mat4 mat4_scale(struct vec3 s);
 struct mat4 mat4_translate(struct vec3 t);
 struct mat4 mat4_rotx(float rad);
@@ -74,3 +83,4 @@ extern const struct vec3 VEC3_RIGHT;
 extern const struct vec3 VEC3_LEFT;
 extern const struct vec3 VEC3_FORWARD;
 extern const struct vec3 VEC3_BACK;
+extern const struct vec3 VEC3_ONE;

@@ -25,14 +25,17 @@ const char *vert_shader_str =
     "layout (location = 1) in vec3 a_norm;\n"
     "layout (location = 2) in vec4 a_col;\n"
     "layout (location = 3) in vec2 a_uv;\n"
-    "uniform mat4 model;\n"
-    "uniform mat4 view;\n"
-    "uniform mat4 projection;\n"
+    "uniform mat4 u_view;\n"
+    "uniform mat4 u_projection;\n"
+    "out vec3 v_pos;\n"
+    "out vec3 v_norm;\n"
     "out vec4 v_col;\n"
     "out vec2 v_uv;\n"
     "void main()\n"
     "{\n"
-    "   gl_Position = vec4(a_pos, 1.0) * model * view * projection;\n"
+    "   gl_Position = vec4(a_pos, 1.0) * u_view * u_projection;\n"
+    "   v_pos = a_pos;\n"
+    "   v_norm = a_norm;\n"
     "   v_col = a_col;\n"
     "   v_uv = a_uv;\n"
     "}";
@@ -40,12 +43,23 @@ const char *vert_shader_str =
 const char *frag_shader_str =
     "#version 330 core\n"
     "out vec4 o_col;"
+    "in vec3 v_pos;\n"
+    "in vec3 v_norm;\n"
     "in vec4 v_col;\n"
     "in vec2 v_uv;\n"
-    "uniform sampler2D sampler;\n"
+    "uniform sampler2D u_sampler;\n"
+    "uniform vec3 u_view_pos;\n"
+    "uniform vec3 u_light_pos;\n"
+    "uniform vec4 u_light_color;\n"
     "void main()\n"
     "{\n"
-    "   o_col = texture(sampler, v_uv) * v_col;\n"
+    "   vec3 light_dir = normalize(u_light_pos - v_pos);\n"
+    "   vec3 view_dir = normalize(u_view_pos - v_pos);\n"
+    "   vec3 reflect_dir = reflect(-light_dir, v_norm);\n"
+    "   float ambience = 0.1;\n"
+    "   float diffuse = max(dot(v_norm, light_dir), 0.0);\n"
+    "   float specular = 0.5f * pow(max(dot(view_dir, reflect_dir), 0.0), 32);\n"
+    "   o_col = (ambience + diffuse + specular) * u_light_color * texture(u_sampler, v_uv) * v_col;\n"
     "}";
 
 size_t vertex_count;
@@ -59,26 +73,28 @@ GLuint vbo_id;
 GLuint ebo_id;
 GLuint shader_id;
 
-GLint u_model_location;
 GLint u_view_location;
 GLint u_projection_location;
+GLint u_view_pos_location;
+GLint u_light_pos_location;
+GLint u_light_color_location;
 GLint u_sampler_location;
 
-struct mat4 model;
 struct mat4 projection;
 
 struct camera camera;
 
-#define MAX_MSTACK 32
-struct mat4 mstack[MAX_MSTACK];
-size_t mstack_size;
-struct mat4 mstack_top;
+struct mat4 model_matrix;
+struct mat4 normal_matrix;
+
+struct vec3 light_pos;
+struct color light_color;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
 
-static void push_vertex(struct vec3 pos, struct color c, float uvx, float uvy);
+static void push_vertex(struct vec3 pos, struct vec3 norm, struct color c, float uvx, float uvy);
 
 static void on_window_size_changed(GLFWwindow *window, int width, int height);
 
@@ -91,6 +107,10 @@ bool render_init(GLFWwindow *window)
 
     // Depth testing
     glEnable(GL_DEPTH_TEST);
+
+    // FIXME: Culling hides some quads
+    // Culling
+    // glEnable(GL_CULL_FACE);
 
     // Vertex array
     glGenVertexArrays(1, &vao_id);
@@ -159,10 +179,12 @@ bool render_init(GLFWwindow *window)
     glUseProgram(shader_id);
 
     // Store shader uniform locations
-    u_model_location = glGetUniformLocation(shader_id, "model");
-    u_view_location = glGetUniformLocation(shader_id, "view");
-    u_projection_location = glGetUniformLocation(shader_id, "projection");
-    u_sampler_location = glGetUniformLocation(shader_id, "sampler");
+    u_view_location = glGetUniformLocation(shader_id, "u_view");
+    u_projection_location = glGetUniformLocation(shader_id, "u_projection");
+    u_view_pos_location = glGetUniformLocation(shader_id, "u_view_pos");
+    u_light_pos_location = glGetUniformLocation(shader_id, "u_light_pos");
+    u_light_color_location = glGetUniformLocation(shader_id, "u_light_color");
+    u_sampler_location = glGetUniformLocation(shader_id, "u_sampler");
 
     // Set sampler uniforms
     glUniform1i(u_sampler_location, 0);
@@ -189,12 +211,14 @@ bool render_init(GLFWwindow *window)
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
     // Initialize matrices
-    model = mat4_identity();
-    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 1000.0f);
+    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
 
     camera.transform = transform_create(vec3_create(0.0f, 0.0f, -30.0f));
 
-    mstack_top = mat4_identity();
+    model_matrix = mat4_identity();
+    normal_matrix = mat4_identity();
+
+    light_color = COLOR_WHITE;
 
     return true;
 }
@@ -245,9 +269,14 @@ void render_flush()
     struct mat4 view = camera_view(&camera);
 
     // Upload uniforms
-    glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model.m11);
     glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
     glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection.m11);
+    glUniform3f(u_view_pos_location, camera.transform.pos.x, camera.transform.pos.y,
+            camera.transform.pos.z);
+    glUniform3f(u_light_pos_location, light_pos.x, light_pos.y, light_pos.z);
+
+    struct vec3 col = color_to_vec3(light_color);
+    glUniform4f(u_light_color_location, col.x, col.y, col.z, 1.0f);
 
     glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_SHORT, 0);
 
@@ -256,32 +285,14 @@ void render_flush()
     current_texture = NULL;
 }
 
-
-void render_mpush(struct mat4 m)
-{
-    assert(mstack_size < MAX_MSTACK);
-
-    memcpy(mstack + mstack_size, &mstack_top, sizeof(struct mat4));
-    mstack_size++;
-
-    mstack_top = mat4_mul(mstack_top, m);
-}
-
-void render_mpop()
-{
-    assert(mstack_size > 0);
-
-    mstack_size--;
-    mstack_top = mstack[mstack_size];
-}
-
 void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
         struct color col_a, struct color col_b, struct color col_c,
         float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c)
 {
-    push_vertex(a, col_a, uvx_a, uvy_a);
-    push_vertex(b, col_b, uvx_b, uvy_b);
-    push_vertex(c, col_c, uvx_c, uvy_c);
+    struct vec3 norm = vec3_normalize(vec3_cross(vec3_sub(b, a), vec3_sub(c, a)));
+    push_vertex(a, norm, col_a, uvx_a, uvy_a);
+    push_vertex(b, norm, col_b, uvx_b, uvy_b);
+    push_vertex(c, norm, col_c, uvx_c, uvy_c);
 
     *index_map = vertex_count;
     index_map++;
@@ -294,45 +305,54 @@ void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
     index_count += 3;
 }
 
-void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d,
-        struct color col_a, struct color col_b, struct color col_c, struct color col_d,
-        float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c,
-        float uvx_d, float uvy_d)
+void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d, struct color col)
 {
-    push_vertex(a, col_a, uvx_a, uvy_a);
-    push_vertex(b, col_b, uvx_b, uvy_b);
-    push_vertex(c, col_c, uvx_c, uvy_c);
-    push_vertex(d, col_d, uvx_d, uvy_d);
+
+    struct vec3 norm = vec3_normalize(vec3_cross(vec3_sub(b, a), vec3_sub(c, a)));
+    push_vertex(a, norm, col, 0.0f, 1.0f);
+    push_vertex(b, norm, col, 0.0f, 0.0f);
+    push_vertex(c, norm, col, 1.0f, 0.0f);
+    push_vertex(d, norm, col, 1.0f, 1.0f);
 
     *index_map = vertex_count;
     index_map++;
     *index_map = vertex_count + 1;
     index_map++;
-    *index_map = vertex_count + 3;
-    index_map++;
-    *index_map = vertex_count + 1;
+    *index_map = vertex_count + 2;
     index_map++;
     *index_map = vertex_count + 2;
     index_map++;
     *index_map = vertex_count + 3;
+    index_map++;
+    *index_map = vertex_count;
     index_map++;
 
     vertex_count += 4;
     index_count += 6;
 }
 
-void render_mesh(const struct mesh *mesh)
+
+void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
     if (mesh->texture)
     {
         set_texture(mesh->texture);
     }
 
+    model_matrix = mat4_mul(mat4_mul(mat4_translate(transform->pos),
+                 transform->rot), mat4_scale(transform->scale));
+
+    // NOTE: Need to use scale matrix if non uniform scaling
+    normal_matrix = mat4_transpose(transform->rot);
+
     for (size_t i = 0; i < mesh->vertex_count; i++)
     {
         struct vertex *v = mesh->vertices + i;
-        push_vertex(v->pos, v->col, v->uvx, v->uvy);
+        push_vertex(v->pos, v->norm, v->col, v->uvx, v->uvy);
     }
+
+    model_matrix = mat4_identity();
+    normal_matrix = mat4_identity();
 
     for (size_t i = 0; i < mesh->index_count; i++)
     {
@@ -349,9 +369,15 @@ struct camera *get_camera()
     return &camera;
 }
 
-void push_vertex(struct vec3 pos, struct color c, float uvx, float uvy)
+void set_light_pos(struct vec3 pos)
 {
-    vertex_map->pos = mat4_vmul(mstack_top, pos);
+    light_pos = pos;
+}
+
+void push_vertex(struct vec3 pos, struct vec3 norm, struct color c, float uvx, float uvy)
+{
+    vertex_map->pos = mat4_vmul(model_matrix, pos);
+    vertex_map->norm = mat4_vmul(normal_matrix, norm);
     vertex_map->col = c;
     vertex_map->uvx = uvx;
     vertex_map->uvy = uvy;
@@ -368,6 +394,11 @@ struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
     c.a = a;
 
     return c;
+}
+
+struct vec3 color_to_vec3(struct color col)
+{
+    return vec3_create(col.r / 255.0f, col.g / 255.0f, col.b / 255.0f);
 }
 
 void on_window_size_changed(GLFWwindow *window, int width, int height)

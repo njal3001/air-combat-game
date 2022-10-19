@@ -255,6 +255,17 @@ struct vec3 mat4_vmul(struct mat4 m, struct vec3 v)
     return res;
 }
 
+struct mat4 mat4_fmul(struct mat4 m, float f)
+{
+    struct mat4 res;
+    for (size_t i = 0; i < 16; i++)
+    {
+        res.vals[i] = m.vals[i] / f;
+    }
+
+    return res;
+}
+
 struct mat4 mat4_scale(struct vec3 s)
 {
     struct mat4 res = mat4_zero();
@@ -456,3 +467,4 @@ const struct vec3 VEC3_RIGHT =   { 1.0f, 0.0f, 0.0f  };
 const struct vec3 VEC3_LEFT =    { -1.0f, 0.0f, 0.0f };
 const struct vec3 VEC3_FORWARD = { 0.0f, 0.0f, 1.0f  };
 const struct vec3 VEC3_BACK =    { 0.0f, 0.0f, -1.0f };
+const struct vec3 VEC3_ONE =     { 1.0f, 1.0f, 1.0f  };

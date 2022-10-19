@@ -14,8 +14,11 @@ struct hashmap *meshes;
 size_t asset_base_length;
 char asset_path[MAX_ASSET_PATH];
 
+struct mesh quad_mesh;
+
 static bool read_polygon(const char *name, struct mesh *mesh);
 static void texture_free(struct texture *texture);
+static void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count);
 static void mesh_free(struct mesh *mesh);
 
 static void load_asset_path(const char *name)
@@ -37,6 +40,39 @@ void assets_init()
 
     textures = hashmap_new();
     meshes = hashmap_new();
+
+    mesh_init(&quad_mesh, 4, 6);
+
+    quad_mesh.vertices[0].pos = vec3_create(-0.5f, 0.0f, 0.5f);
+    quad_mesh.vertices[0].norm = VEC3_UP;
+    quad_mesh.vertices[0].col = COLOR_WHITE;
+    quad_mesh.vertices[0].uvx = 0.0f;
+    quad_mesh.vertices[0].uvy = 1.0f;
+
+    quad_mesh.vertices[1].pos = vec3_create(-0.5f, 0.0f, -0.5f);
+    quad_mesh.vertices[1].norm = VEC3_UP;
+    quad_mesh.vertices[1].col = COLOR_WHITE;
+    quad_mesh.vertices[1].uvx = 0.0f;
+    quad_mesh.vertices[1].uvy = 0.0f;
+
+    quad_mesh.vertices[2].pos = vec3_create(0.5f, 0.0f, -0.5f);
+    quad_mesh.vertices[2].norm = VEC3_UP;
+    quad_mesh.vertices[2].col = COLOR_WHITE;
+    quad_mesh.vertices[2].uvx = 1.0f;
+    quad_mesh.vertices[2].uvy = 0.0f;
+
+    quad_mesh.vertices[3].pos = vec3_create(0.5f, 0.0f, 0.5f);
+    quad_mesh.vertices[3].norm = VEC3_UP;
+    quad_mesh.vertices[3].col = COLOR_WHITE;
+    quad_mesh.vertices[3].uvx = 1.0f;
+    quad_mesh.vertices[3].uvy = 1.0f;
+
+    quad_mesh.indices[0] = 0;
+    quad_mesh.indices[1] = 1;
+    quad_mesh.indices[2] = 2;
+    quad_mesh.indices[3] = 2;
+    quad_mesh.indices[4] = 3;
+    quad_mesh.indices[5] = 0;
 }
 
 void assets_free()
@@ -65,6 +101,8 @@ void assets_free()
 
     hashmap_free(meshes);
     hashmap_free(textures);
+
+    mesh_free(&quad_mesh);
 }
 
 const struct texture *get_texture(const char *name)
@@ -244,6 +282,26 @@ bool read_polygon(const char *name, struct mesh *mesh)
     fclose(f);
 
     return true;
+}
+
+struct shape create_quad()
+{
+    return (struct shape)
+    {
+        .transform = transform_create(VEC3_ZERO),
+        .mesh = &quad_mesh,
+    };
+}
+
+void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)
+{
+    mesh->vertex_count = vertex_count;
+    mesh->index_count = index_count;
+
+    mesh->vertices = malloc(vertex_count * sizeof(struct vertex));
+    mesh->indices = malloc(index_count * sizeof(GLushort));
+
+    mesh->texture = NULL;
 }
 
 void texture_free(struct texture *texture)
