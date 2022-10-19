@@ -1,7 +1,6 @@
 ply
 format ascii 1.0
 comment Created by Blender 2.82 (sub 7) - www.blender.org, source file: 'untitled.blend'
-comment texture textured_cube.png
 element vertex 24
 property float x
 property float y

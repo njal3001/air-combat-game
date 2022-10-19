@@ -1,4 +1,5 @@
 #include "assets.h"
+#include <stdbool.h>
 #include "platform.h"
 #include "hashmap.h"
 
@@ -13,6 +14,7 @@ struct hashmap *meshes;
 size_t asset_base_length;
 char asset_path[MAX_ASSET_PATH];
 
+static bool read_polygon(const char *name, struct mesh *mesh);
 static void texture_free(struct texture *texture);
 static void mesh_free(struct mesh *mesh);
 
@@ -112,10 +114,38 @@ const struct mesh *get_mesh(const char *name)
 
     load_asset_path(name);
 
+    FILE *f_mesh = fopen(asset_path, "r");
+    assert(f_mesh);
+
+    struct mesh *mesh = malloc(sizeof(struct mesh));
+
+    char *line = NULL;
+    size_t blength = 0;
+
+    getline(&line, &blength, f_mesh);
+    line[strcspn(line, "\n")] = '\0';
+    bool has_polygon = read_polygon(line, mesh);
+    assert(has_polygon);
+
+    getline(&line, &blength, f_mesh);
+    line[strcspn(line, "\n")] = '\0';
+    mesh->texture = get_texture(line);
+    assert(mesh->texture);
+
+    free(line);
+    fclose(f_mesh);
+
+    hashmap_put(meshes, name, mesh);
+    return mesh;
+}
+
+bool read_polygon(const char *name, struct mesh *mesh)
+{
+    load_asset_path(name);
     FILE *f = fopen(asset_path, "r");
     if (!f)
     {
-        return NULL;
+        return false;
     }
 
     enum read_state
@@ -128,10 +158,10 @@ const struct mesh *get_mesh(const char *name)
     size_t vertices_read = 0;
     size_t indices_read = 0;
 
-    struct mesh *mesh = malloc(sizeof(struct mesh));
     char *line = NULL;
     size_t blength = 0;
     int read;
+
     while ((read = getline(&line, &blength, f)) != -1)
     {
         if (!read)
@@ -157,17 +187,6 @@ const struct mesh *get_mesh(const char *name)
                 else if (strcmp(word, "face") == 0)
                 {
                     mesh->index_count = strtol(scount, NULL, 10) * 3;
-                }
-            }
-            else if (strcmp(word, "comment") == 0)
-            {
-                word = strtok(NULL, " ");
-                if (strcmp(word, "texture") == 0)
-                {
-                    word = strtok(NULL, " ");
-                    mesh->texture = get_texture(word);
-
-                    assert(mesh->texture);
                 }
             }
             else if (strcmp(word, "end_header") == 0)
@@ -224,8 +243,7 @@ const struct mesh *get_mesh(const char *name)
     free(line);
     fclose(f);
 
-    hashmap_put(meshes, name, mesh);
-    return mesh;
+    return true;
 }
 
 void texture_free(struct texture *texture)

@@ -77,7 +77,7 @@ void hashmap_put(struct hashmap *map, const char *key, void *value)
 
 void *hashmap_get(struct hashmap *map, const char *key)
 {
-    size_t hash = str_hash(key) & map->bucket_count;
+    size_t hash = str_hash(key) % map->bucket_count;
     struct hashbucket *bucket = map->buckets + hash;
 
     for (size_t i = 0; i < bucket->count; i++)

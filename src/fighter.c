@@ -13,7 +13,7 @@ void fighter_init(struct fighter *fighter, struct vec3 pos)
     fighter->speed = 0.5f;
     fighter->rotation_speed = 0.015f;
 
-    fighter->mesh = get_mesh("cube.ply");
+    fighter->mesh = get_mesh("cube.mesh");
 }
 
 void fighter_update(struct fighter *fighter, float dt)
