@@ -25,6 +25,8 @@ const char *vert_shader_str =
     "layout (location = 1) in vec3 a_norm;\n"
     "layout (location = 2) in vec4 a_col;\n"
     "layout (location = 3) in vec2 a_uv;\n"
+    "uniform mat4 u_model;\n"
+    "uniform mat4 u_normal;\n"
     "uniform mat4 u_view;\n"
     "uniform mat4 u_projection;\n"
     "out vec3 v_pos;\n"
@@ -33,9 +35,9 @@ const char *vert_shader_str =
     "out vec2 v_uv;\n"
     "void main()\n"
     "{\n"
-    "   gl_Position = vec4(a_pos, 1.0) * u_view * u_projection;\n"
-    "   v_pos = a_pos;\n"
-    "   v_norm = a_norm;\n"
+    "   gl_Position = vec4(a_pos, 1.0) * u_model * u_view * u_projection;\n"
+    "   v_pos = vec3(vec4(a_pos, 1.0) * u_model);\n"
+    "   v_norm = vec3(vec4(a_norm, 1.0) * u_normal);\n"
     "   v_col = a_col;\n"
     "   v_uv = a_uv;\n"
     "}";
@@ -62,10 +64,6 @@ const char *frag_shader_str =
     "   o_col = (ambience + diffuse + specular) * u_light_color * texture(u_sampler, v_uv) * v_col;\n"
     "}";
 
-size_t vertex_count;
-size_t index_count;
-struct vertex *vertex_map;
-GLushort *index_map;
 const struct texture *current_texture;
 
 GLuint vao_id;
@@ -73,6 +71,8 @@ GLuint vbo_id;
 GLuint ebo_id;
 GLuint shader_id;
 
+GLint u_model_location;
+GLint u_normal_location;
 GLint u_view_location;
 GLint u_projection_location;
 GLint u_view_pos_location;
@@ -173,6 +173,8 @@ bool render_init(GLFWwindow *window)
     glUseProgram(shader_id);
 
     // Store shader uniform locations
+    u_model_location = glGetUniformLocation(shader_id, "u_model");
+    u_normal_location = glGetUniformLocation(shader_id, "u_normal");
     u_view_location = glGetUniformLocation(shader_id, "u_view");
     u_projection_location = glGetUniformLocation(shader_id, "u_projection");
     u_view_pos_location = glGetUniformLocation(shader_id, "u_view_pos");
@@ -226,14 +228,6 @@ void set_texture(const struct texture *texture)
 {
     if (current_texture != texture)
     {
-        // Flush vertices using current texture
-        if (current_texture && vertex_count > 0)
-        {
-            render_end();
-            render_flush();
-            render_begin();
-        }
-
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, texture->id);
 
@@ -241,40 +235,6 @@ void set_texture(const struct texture *texture)
     }
 }
 
-void render_begin()
-{
-    vertex_map = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-    index_map = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
-}
-
-void render_end()
-{
-    glUnmapBuffer(GL_ARRAY_BUFFER);
-    glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-    vertex_map = NULL;
-    index_map = NULL;
-}
-
-void render_flush()
-{
-    struct mat4 view = camera_view(&camera);
-
-    // Upload uniforms
-    glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
-    glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection.m11);
-    glUniform3f(u_view_pos_location, camera.transform.pos.x, camera.transform.pos.y,
-            camera.transform.pos.z);
-    glUniform3f(u_light_pos_location, light_pos.x, light_pos.y, light_pos.z);
-
-    struct vec3 col = color_to_vec3(light_color);
-    glUniform4f(u_light_color_location, col.x, col.y, col.z, 1.0f);
-
-    glDrawElements(GL_TRIANGLES, index_count, GL_UNSIGNED_SHORT, 0);
-
-    vertex_count = 0;
-    index_count = 0;
-    current_texture = NULL;
-}
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
@@ -285,30 +245,25 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
 
     struct mat4 model_matrix = mat4_mul(mat4_mul(mat4_translate(transform->pos),
                  transform->rot), mat4_scale(transform->scale));
-
     // NOTE: Need to use scale matrix if non uniform scaling
     struct mat4 normal_matrix = transform->rot;
+    struct mat4 view = camera_view(&camera);
 
-    for (size_t i = 0; i < mesh->vertex_count; i++)
-    {
-        struct vertex *v = mesh->vertices + i;
-        vertex_map->pos = mat4_vmul(model_matrix, v->pos);
-        vertex_map->norm = mat4_vmul(normal_matrix, v->norm);
-        vertex_map->col = v->col;
-        vertex_map->uvx = v->uvx;
-        vertex_map->uvy = v->uvy;
+    // Upload uniforms
+    glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model_matrix.m11);
+    glUniformMatrix4fv(u_normal_location, 1, GL_FALSE, &normal_matrix.m11);
+    glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
+    glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection.m11);
+    glUniform3f(u_view_pos_location, camera.transform.pos.x, camera.transform.pos.y,
+            camera.transform.pos.z);
+    glUniform3f(u_light_pos_location, light_pos.x, light_pos.y, light_pos.z);
 
-        vertex_map++;
-    }
+    struct vec3 col = color_to_vec3(light_color);
+    glUniform4f(u_light_color_location, col.x, col.y, col.z, 1.0f);
 
-    for (size_t i = 0; i < mesh->index_count; i++)
-    {
-        *index_map = vertex_count + mesh->indices[i];
-        index_map++;
-    }
-
-    vertex_count += mesh->vertex_count;
-    index_count += mesh->index_count;
+    glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex), mesh->vertices);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort), mesh->indices);
+    glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_SHORT, 0);
 }
 
 struct camera *get_camera()

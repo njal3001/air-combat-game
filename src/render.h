@@ -42,10 +42,6 @@ struct mesh
 bool render_init(GLFWwindow *window);
 void render_shutdown();
 
-void render_begin();
-void render_end();
-void render_flush();
-
 void set_texture(const struct texture *texture);
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform);

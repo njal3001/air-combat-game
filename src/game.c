@@ -103,8 +103,6 @@ void game_run()
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        render_begin();
-
         set_texture(tex);
 
         render_mesh(cube_bot.mesh, &cube_bot.transform);
@@ -115,9 +113,6 @@ void game_run()
         render_mesh(cube_far.mesh, &cube_far.transform);
 
         fighter_render(&fighter);
-
-        render_end();
-        render_flush();
 
         glfwSwapBuffers(window);
         glfwPollEvents();
