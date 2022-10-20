@@ -6,21 +6,6 @@
 
 struct key keys[GLFW_KEY_LAST + 1];
 
-static void key_callback(GLFWwindow *window, int k, int scancode, int action, int mods)
-{
-    if (k < 0) return;
-
-    struct key *key = keys + k;
-
-    switch (action)
-    {
-        case GLFW_PRESS:
-        {
-
-        }
-    }
-}
-
 void input_init(GLFWwindow *window)
 {
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);

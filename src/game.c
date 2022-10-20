@@ -65,22 +65,22 @@ void game_run()
     struct shape cube_left = create_quad();
     cube_left.transform.scale = vec3_mul(VEC3_ONE, cube_scale);
     cube_left.transform.pos.x = -cube_scale / 2.0f;
-    cube_left.transform.rot = mat4_rotz(M_PI / 2.0f);
+    cube_left.transform.rot = mat4_rotz(-M_PI / 2.0f);
 
     struct shape cube_right = create_quad();
     cube_right.transform.scale = vec3_mul(VEC3_ONE, cube_scale);
     cube_right.transform.pos.x = cube_scale / 2.0f;
-    cube_right.transform.rot = mat4_rotz(-M_PI / 2.0f);
+    cube_right.transform.rot = mat4_rotz(M_PI / 2.0f);
 
     struct shape cube_near = create_quad();
     cube_near.transform.scale = vec3_mul(VEC3_ONE, cube_scale);
     cube_near.transform.pos.z = cube_scale / 2.0f;
-    cube_near.transform.rot = mat4_rotx(M_PI / 2.0f);
+    cube_near.transform.rot = mat4_rotx(-M_PI / 2.0f);
 
     struct shape cube_far = create_quad();
     cube_far.transform.scale = vec3_mul(VEC3_ONE, cube_scale);
     cube_far.transform.pos.z = -cube_scale / 2.0f;
-    cube_far.transform.rot = mat4_rotx(-M_PI / 2.0f);
+    cube_far.transform.rot = mat4_rotx(M_PI / 2.0f);
 
     while (!glfwWindowShouldClose(window))
     {

@@ -68,11 +68,11 @@ void assets_init()
     quad_mesh.vertices[3].uvy = 1.0f;
 
     quad_mesh.indices[0] = 0;
-    quad_mesh.indices[1] = 1;
-    quad_mesh.indices[2] = 2;
-    quad_mesh.indices[3] = 2;
+    quad_mesh.indices[1] = 2;
+    quad_mesh.indices[2] = 1;
+    quad_mesh.indices[3] = 0;
     quad_mesh.indices[4] = 3;
-    quad_mesh.indices[5] = 0;
+    quad_mesh.indices[5] = 2;
 }
 
 void assets_free()

@@ -42,7 +42,7 @@ const char *vert_shader_str =
 
 const char *frag_shader_str =
     "#version 330 core\n"
-    "out vec4 o_col;"
+    "out vec4 o_col;\n"
     "in vec3 v_pos;\n"
     "in vec3 v_norm;\n"
     "in vec4 v_col;\n"
@@ -84,17 +84,12 @@ struct mat4 projection;
 
 struct camera camera;
 
-struct mat4 model_matrix;
-struct mat4 normal_matrix;
-
 struct vec3 light_pos;
 struct color light_color;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
-
-static void push_vertex(struct vec3 pos, struct vec3 norm, struct color c, float uvx, float uvy);
 
 static void on_window_size_changed(GLFWwindow *window, int width, int height);
 
@@ -108,9 +103,8 @@ bool render_init(GLFWwindow *window)
     // Depth testing
     glEnable(GL_DEPTH_TEST);
 
-    // FIXME: Culling hides some quads
     // Culling
-    // glEnable(GL_CULL_FACE);
+    glEnable(GL_CULL_FACE);
 
     // Vertex array
     glGenVertexArrays(1, &vao_id);
@@ -215,9 +209,6 @@ bool render_init(GLFWwindow *window)
 
     camera.transform = transform_create(vec3_create(0.0f, 0.0f, -30.0f));
 
-    model_matrix = mat4_identity();
-    normal_matrix = mat4_identity();
-
     light_color = COLOR_WHITE;
 
     return true;
@@ -285,53 +276,6 @@ void render_flush()
     current_texture = NULL;
 }
 
-void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
-        struct color col_a, struct color col_b, struct color col_c,
-        float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c)
-{
-    struct vec3 norm = vec3_normalize(vec3_cross(vec3_sub(b, a), vec3_sub(c, a)));
-    push_vertex(a, norm, col_a, uvx_a, uvy_a);
-    push_vertex(b, norm, col_b, uvx_b, uvy_b);
-    push_vertex(c, norm, col_c, uvx_c, uvy_c);
-
-    *index_map = vertex_count;
-    index_map++;
-    *index_map = vertex_count + 1;
-    index_map++;
-    *index_map = vertex_count + 2;
-    index_map++;
-
-    vertex_count += 3;
-    index_count += 3;
-}
-
-void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d, struct color col)
-{
-
-    struct vec3 norm = vec3_normalize(vec3_cross(vec3_sub(b, a), vec3_sub(c, a)));
-    push_vertex(a, norm, col, 0.0f, 1.0f);
-    push_vertex(b, norm, col, 0.0f, 0.0f);
-    push_vertex(c, norm, col, 1.0f, 0.0f);
-    push_vertex(d, norm, col, 1.0f, 1.0f);
-
-    *index_map = vertex_count;
-    index_map++;
-    *index_map = vertex_count + 1;
-    index_map++;
-    *index_map = vertex_count + 2;
-    index_map++;
-    *index_map = vertex_count + 2;
-    index_map++;
-    *index_map = vertex_count + 3;
-    index_map++;
-    *index_map = vertex_count;
-    index_map++;
-
-    vertex_count += 4;
-    index_count += 6;
-}
-
-
 void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
     if (mesh->texture)
@@ -339,20 +283,23 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
         set_texture(mesh->texture);
     }
 
-    model_matrix = mat4_mul(mat4_mul(mat4_translate(transform->pos),
+    struct mat4 model_matrix = mat4_mul(mat4_mul(mat4_translate(transform->pos),
                  transform->rot), mat4_scale(transform->scale));
 
     // NOTE: Need to use scale matrix if non uniform scaling
-    normal_matrix = mat4_transpose(transform->rot);
+    struct mat4 normal_matrix = transform->rot;
 
     for (size_t i = 0; i < mesh->vertex_count; i++)
     {
         struct vertex *v = mesh->vertices + i;
-        push_vertex(v->pos, v->norm, v->col, v->uvx, v->uvy);
-    }
+        vertex_map->pos = mat4_vmul(model_matrix, v->pos);
+        vertex_map->norm = mat4_vmul(normal_matrix, v->norm);
+        vertex_map->col = v->col;
+        vertex_map->uvx = v->uvx;
+        vertex_map->uvy = v->uvy;
 
-    model_matrix = mat4_identity();
-    normal_matrix = mat4_identity();
+        vertex_map++;
+    }
 
     for (size_t i = 0; i < mesh->index_count; i++)
     {
@@ -372,17 +319,6 @@ struct camera *get_camera()
 void set_light_pos(struct vec3 pos)
 {
     light_pos = pos;
-}
-
-void push_vertex(struct vec3 pos, struct vec3 norm, struct color c, float uvx, float uvy)
-{
-    vertex_map->pos = mat4_vmul(model_matrix, pos);
-    vertex_map->norm = mat4_vmul(normal_matrix, norm);
-    vertex_map->col = c;
-    vertex_map->uvx = uvx;
-    vertex_map->uvy = uvy;
-
-    vertex_map++;
 }
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)

@@ -48,11 +48,6 @@ void render_flush();
 
 void set_texture(const struct texture *texture);
 
-void render_tri(struct vec3 a, struct vec3 b, struct vec3 c,
-        struct color col_a, struct color col_b, struct color col_c,
-        float uvx_a, float uvy_a, float uvx_b, float uvy_b, float uvx_c, float uvy_c);
-void render_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d, struct color col);
-
 void render_mesh(const struct mesh *mesh, const struct transform *transform);
 
 void set_light_pos(struct vec3 pos);

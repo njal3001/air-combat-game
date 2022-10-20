@@ -50,11 +50,6 @@ void fighter_update(struct fighter *fighter, float dt)
     cam->transform.rot = fighter->transform.rot;
     cam->transform.pos = vec3_add(fighter->transform.pos,
             vec3_mul(transform_up(&cam->transform), 4.0f));
-
-    printf("Pos: ");
-    vec3_print(fighter->transform.pos);
-
-    set_light_pos(fighter->transform.pos);
 }
 
 void fighter_render(struct fighter *fighter)
