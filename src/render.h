@@ -19,7 +19,6 @@ struct vertex
 {
     struct vec3 pos;
     struct vec3 norm;
-    struct color col;
     float uvx;
     float uvy;
 };
@@ -30,13 +29,22 @@ struct texture
     GLsizei width, height;
 };
 
+struct material
+{
+    struct vec3 ambient;
+    struct vec3 diffuse;
+    struct vec3 specular;
+    float shininess;
+    const struct texture *texture;
+};
+
 struct mesh
 {
     struct vertex *vertices;
     GLushort *indices;
     size_t vertex_count;
     size_t index_count;
-    const struct texture *texture;
+    struct material material;
 };
 
 bool render_init(GLFWwindow *window);

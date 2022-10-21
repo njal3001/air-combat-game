@@ -45,25 +45,21 @@ void assets_init()
 
     quad_mesh.vertices[0].pos = vec3_create(-0.5f, 0.0f, 0.5f);
     quad_mesh.vertices[0].norm = VEC3_UP;
-    quad_mesh.vertices[0].col = COLOR_WHITE;
     quad_mesh.vertices[0].uvx = 0.0f;
     quad_mesh.vertices[0].uvy = 1.0f;
 
     quad_mesh.vertices[1].pos = vec3_create(-0.5f, 0.0f, -0.5f);
     quad_mesh.vertices[1].norm = VEC3_UP;
-    quad_mesh.vertices[1].col = COLOR_WHITE;
     quad_mesh.vertices[1].uvx = 0.0f;
     quad_mesh.vertices[1].uvy = 0.0f;
 
     quad_mesh.vertices[2].pos = vec3_create(0.5f, 0.0f, -0.5f);
     quad_mesh.vertices[2].norm = VEC3_UP;
-    quad_mesh.vertices[2].col = COLOR_WHITE;
     quad_mesh.vertices[2].uvx = 1.0f;
     quad_mesh.vertices[2].uvy = 0.0f;
 
     quad_mesh.vertices[3].pos = vec3_create(0.5f, 0.0f, 0.5f);
     quad_mesh.vertices[3].norm = VEC3_UP;
-    quad_mesh.vertices[3].col = COLOR_WHITE;
     quad_mesh.vertices[3].uvx = 1.0f;
     quad_mesh.vertices[3].uvy = 1.0f;
 
@@ -73,6 +69,11 @@ void assets_init()
     quad_mesh.indices[3] = 0;
     quad_mesh.indices[4] = 3;
     quad_mesh.indices[5] = 2;
+
+    quad_mesh.material.ambient = vec3_create(0.8f, 0.8f, 0.8f);
+    quad_mesh.material.diffuse = vec3_create(0.8f, 0.8f, 0.8f);
+    quad_mesh.material.specular = VEC3_ZERO;
+    quad_mesh.material.shininess = 1.0f;
 }
 
 void assets_free()
@@ -167,8 +168,14 @@ const struct mesh *get_mesh(const char *name)
 
     getline(&line, &blength, f_mesh);
     line[strcspn(line, "\n")] = '\0';
-    mesh->texture = get_texture(line);
-    assert(mesh->texture);
+    mesh->material.texture = get_texture(line);
+    assert(mesh->material.texture);
+
+    // FIXME: Read values from file?
+    mesh->material.ambient = vec3_create(0.8f, 0.8f, 0.8f);
+    mesh->material.diffuse = vec3_create(0.8f, 0.8f, 0.8f);
+    mesh->material.specular = VEC3_ZERO;
+    mesh->material.shininess = 1.0f;
 
     free(line);
     fclose(f_mesh);
@@ -257,8 +264,6 @@ bool read_polygon(const char *name, struct mesh *mesh)
             word = strtok(NULL, " ");
             v->uvy = strtof(word, NULL);
 
-            v->col = COLOR_WHITE;
-
             vertices_read++;
             if (vertices_read == mesh->vertex_count)
             {
@@ -301,7 +306,7 @@ void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)
     mesh->vertices = malloc(vertex_count * sizeof(struct vertex));
     mesh->indices = malloc(index_count * sizeof(GLushort));
 
-    mesh->texture = NULL;
+    mesh->material.texture = NULL;
 }
 
 void texture_free(struct texture *texture)

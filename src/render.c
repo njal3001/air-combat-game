@@ -23,45 +23,52 @@ const char *vert_shader_str =
     "#version 330 core\n"
     "layout (location = 0) in vec3 a_pos;\n"
     "layout (location = 1) in vec3 a_norm;\n"
-    "layout (location = 2) in vec4 a_col;\n"
-    "layout (location = 3) in vec2 a_uv;\n"
+    "layout (location = 2) in vec2 a_uv;\n"
     "uniform mat4 u_model;\n"
     "uniform mat4 u_normal;\n"
     "uniform mat4 u_view;\n"
     "uniform mat4 u_projection;\n"
     "out vec3 v_pos;\n"
     "out vec3 v_norm;\n"
-    "out vec4 v_col;\n"
     "out vec2 v_uv;\n"
     "void main()\n"
     "{\n"
     "   gl_Position = vec4(a_pos, 1.0) * u_model * u_view * u_projection;\n"
     "   v_pos = vec3(vec4(a_pos, 1.0) * u_model);\n"
     "   v_norm = vec3(vec4(a_norm, 1.0) * u_normal);\n"
-    "   v_col = a_col;\n"
     "   v_uv = a_uv;\n"
     "}";
 
 const char *frag_shader_str =
     "#version 330 core\n"
+    "struct material\n"
+    "{\n"
+    "   vec3 ambient;\n"
+    "   vec3 diffuse;\n"
+    "   vec3 specular;\n"
+    "   float shininess;\n"
+    "};\n"
+    "struct light\n"
+    "{\n"
+    "   vec3 pos;\n"
+    "   vec4 col;\n"
+    "};\n"
     "out vec4 o_col;\n"
     "in vec3 v_pos;\n"
     "in vec3 v_norm;\n"
-    "in vec4 v_col;\n"
     "in vec2 v_uv;\n"
+    "uniform material u_material;\n"
     "uniform sampler2D u_sampler;\n"
     "uniform vec3 u_view_pos;\n"
-    "uniform vec3 u_light_pos;\n"
-    "uniform vec4 u_light_color;\n"
+    "uniform light u_light;\n"
     "void main()\n"
     "{\n"
-    "   vec3 light_dir = normalize(u_light_pos - v_pos);\n"
+    "   vec3 light_dir = normalize(u_light.pos - v_pos);\n"
     "   vec3 view_dir = normalize(u_view_pos - v_pos);\n"
     "   vec3 reflect_dir = reflect(-light_dir, v_norm);\n"
-    "   float ambience = 0.1;\n"
-    "   float diffuse = max(dot(v_norm, light_dir), 0.0);\n"
-    "   float specular = 0.5f * pow(max(dot(view_dir, reflect_dir), 0.0), 32);\n"
-    "   o_col = (ambience + diffuse + specular) * u_light_color * texture(u_sampler, v_uv) * v_col;\n"
+    "   vec3 diffuse = max(dot(v_norm, light_dir), 0.0) * u_material.diffuse;\n"
+    "   vec3 specular = pow(max(dot(view_dir, reflect_dir), 0.0), u_material.shininess) * u_material.specular;\n"
+    "   o_col = vec4((u_material.ambient + diffuse + specular), 1.0) * u_light.col * texture(u_sampler, v_uv);\n"
     "}";
 
 const struct texture *current_texture;
@@ -79,6 +86,10 @@ GLint u_view_pos_location;
 GLint u_light_pos_location;
 GLint u_light_color_location;
 GLint u_sampler_location;
+GLint u_ambient_location;
+GLint u_diffuse_location;
+GLint u_specular_location;
+GLint u_shininess_location;
 
 struct mat4 projection;
 
@@ -178,9 +189,13 @@ bool render_init(GLFWwindow *window)
     u_view_location = glGetUniformLocation(shader_id, "u_view");
     u_projection_location = glGetUniformLocation(shader_id, "u_projection");
     u_view_pos_location = glGetUniformLocation(shader_id, "u_view_pos");
-    u_light_pos_location = glGetUniformLocation(shader_id, "u_light_pos");
-    u_light_color_location = glGetUniformLocation(shader_id, "u_light_color");
+    u_light_pos_location = glGetUniformLocation(shader_id, "u_light.pos");
+    u_light_color_location = glGetUniformLocation(shader_id, "u_light.col");
     u_sampler_location = glGetUniformLocation(shader_id, "u_sampler");
+    u_ambient_location = glGetUniformLocation(shader_id, "u_material.ambient");
+    u_diffuse_location = glGetUniformLocation(shader_id, "u_material.diffuse");
+    u_specular_location = glGetUniformLocation(shader_id, "u_material.specular");
+    u_shininess_location = glGetUniformLocation(shader_id, "u_material.shininess");
 
     // Set sampler uniforms
     glUniform1i(u_sampler_location, 0);
@@ -188,20 +203,16 @@ bool render_init(GLFWwindow *window)
     // Vertex attributes
     size_t pos_size = 3 * sizeof(GLfloat);
     size_t norm_size = 3 * sizeof(GLfloat);
-    size_t color_size = 4 * sizeof(GLubyte);
     size_t uv_size = 2 * sizeof(GLfloat);
-    size_t stride = pos_size + norm_size + color_size + uv_size;
+    size_t stride = pos_size + norm_size + uv_size;
 
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)NULL);
     glEnableVertexAttribArray(0);
     glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)pos_size);
     glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 4, GL_UNSIGNED_BYTE, GL_TRUE, stride,
-            (const GLvoid*)pos_size + norm_size);
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride,
+            (const GLvoid*)(pos_size + norm_size));
     glEnableVertexAttribArray(2);
-    glVertexAttribPointer(3, 2, GL_FLOAT, GL_FALSE, stride,
-            (const GLvoid*)(pos_size + norm_size + color_size));
-    glEnableVertexAttribArray(3);
 
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
@@ -238,9 +249,9 @@ void set_texture(const struct texture *texture)
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
-    if (mesh->texture)
+    if (mesh->material.texture)
     {
-        set_texture(mesh->texture);
+        set_texture(mesh->material.texture);
     }
 
     struct mat4 model_matrix = mat4_mul(mat4_mul(mat4_translate(transform->pos),
@@ -250,16 +261,23 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
     struct mat4 view = camera_view(&camera);
 
     // Upload uniforms
+
     glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model_matrix.m11);
     glUniformMatrix4fv(u_normal_location, 1, GL_FALSE, &normal_matrix.m11);
     glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
     glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection.m11);
+
     glUniform3f(u_view_pos_location, camera.transform.pos.x, camera.transform.pos.y,
             camera.transform.pos.z);
     glUniform3f(u_light_pos_location, light_pos.x, light_pos.y, light_pos.z);
 
     struct vec3 col = color_to_vec3(light_color);
     glUniform4f(u_light_color_location, col.x, col.y, col.z, 1.0f);
+
+    glUniform3f(u_ambient_location, mesh->material.ambient.x, mesh->material.ambient.y, mesh->material.ambient.z);
+    glUniform3f(u_diffuse_location, mesh->material.diffuse.x, mesh->material.diffuse.y, mesh->material.diffuse.z);
+    glUniform3f(u_specular_location, mesh->material.specular.x, mesh->material.specular.y, mesh->material.specular.z);
+    glUniform1f(u_shininess_location, mesh->material.shininess);
 
     glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex), mesh->vertices);
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort), mesh->indices);
