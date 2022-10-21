@@ -29,6 +29,8 @@ add_executable(air-combat
     src/platform.c
     src/hashmap.h
     src/hashmap.c
+    src/shader.h
+    src/shader.c
 )
 
 include_directories(${GLEW_INCLUDE_DIRS})

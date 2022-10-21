@@ -54,8 +54,6 @@ void set_texture(const struct texture *texture);
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform);
 
-void set_light_pos(struct vec3 pos);
-
 struct camera *get_camera();
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a);

@@ -6,7 +6,6 @@
 #include "input.h"
 #include "assets.h"
 
-const char *app_name;
 GLFWwindow *window;
 bool camera_free;
 
@@ -31,15 +30,17 @@ bool game_init()
         return false;
     }
 
+    // NOTE: Need to initialize assets before renderer because of shader loading
+    assets_init();
     if (!render_init(window))
     {
+        assets_free();
         glfwTerminate();
-        printf("Failed to initialize renderer!");
+        printf("Failed to initialize renderer!\n");
         return false;
     }
 
     input_init(window);
-    assets_init();
 
     return true;
 }

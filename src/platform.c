@@ -1,6 +1,7 @@
 #include "platform.h"
 #include <unistd.h>
 #include <string.h>
+#include <stdio.h>
 
 // NOTE: Linux only
 void get_exec_path(char *buf, size_t buf_size)
@@ -25,4 +26,23 @@ void get_dir_path(char *path_buf, size_t up)
             dir_count++;
         }
     }
+}
+
+char *read_file(const char *path)
+{
+    FILE *f = fopen(path, "r");
+    if (!f)
+    {
+        return NULL;
+    }
+
+    fseek(f, 0, SEEK_END);
+    long size = ftell(f);
+    rewind(f);
+
+    char *data = malloc(size + 1);
+    fread(data, size, 1, f);
+    data[size] = '\0';
+
+    return data;
 }

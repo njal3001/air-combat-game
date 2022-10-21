@@ -5,6 +5,8 @@
 #include <assert.h>
 #include <string.h>
 #include <math.h>
+#include "shader.h"
+#include "assets.h"
 
 #ifdef _WIN32
 #    define WIN32_LEAN_AND_MEAN
@@ -19,84 +21,15 @@
 #define FOV (M_PI / 4.0f)
 #define ASPECT_RATIO (640.0f / 480.0f)
 
-const char *vert_shader_str =
-    "#version 330 core\n"
-    "layout (location = 0) in vec3 a_pos;\n"
-    "layout (location = 1) in vec3 a_norm;\n"
-    "layout (location = 2) in vec2 a_uv;\n"
-    "uniform mat4 u_model;\n"
-    "uniform mat4 u_normal;\n"
-    "uniform mat4 u_view;\n"
-    "uniform mat4 u_projection;\n"
-    "out vec3 v_pos;\n"
-    "out vec3 v_norm;\n"
-    "out vec2 v_uv;\n"
-    "void main()\n"
-    "{\n"
-    "   gl_Position = vec4(a_pos, 1.0) * u_model * u_view * u_projection;\n"
-    "   v_pos = vec3(vec4(a_pos, 1.0) * u_model);\n"
-    "   v_norm = vec3(vec4(a_norm, 1.0) * u_normal);\n"
-    "   v_uv = a_uv;\n"
-    "}";
-
-const char *frag_shader_str =
-    "#version 330 core\n"
-    "struct material\n"
-    "{\n"
-    "   vec3 ambient;\n"
-    "   vec3 diffuse;\n"
-    "   vec3 specular;\n"
-    "   float shininess;\n"
-    "};\n"
-    "struct light\n"
-    "{\n"
-    "   vec3 pos;\n"
-    "   vec4 col;\n"
-    "};\n"
-    "out vec4 o_col;\n"
-    "in vec3 v_pos;\n"
-    "in vec3 v_norm;\n"
-    "in vec2 v_uv;\n"
-    "uniform material u_material;\n"
-    "uniform sampler2D u_sampler;\n"
-    "uniform vec3 u_view_pos;\n"
-    "uniform light u_light;\n"
-    "void main()\n"
-    "{\n"
-    "   vec3 light_dir = normalize(u_light.pos - v_pos);\n"
-    "   vec3 view_dir = normalize(u_view_pos - v_pos);\n"
-    "   vec3 reflect_dir = reflect(-light_dir, v_norm);\n"
-    "   vec3 diffuse = max(dot(v_norm, light_dir), 0.0) * u_material.diffuse;\n"
-    "   vec3 specular = pow(max(dot(view_dir, reflect_dir), 0.0), u_material.shininess) * u_material.specular;\n"
-    "   o_col = vec4((u_material.ambient + diffuse + specular), 1.0) * u_light.col * texture(u_sampler, v_uv);\n"
-    "}";
-
 const struct texture *current_texture;
 
 GLuint vao_id;
 GLuint vbo_id;
 GLuint ebo_id;
-GLuint shader_id;
 
-GLint u_model_location;
-GLint u_normal_location;
-GLint u_view_location;
-GLint u_projection_location;
-GLint u_view_pos_location;
-GLint u_light_pos_location;
-GLint u_light_color_location;
-GLint u_sampler_location;
-GLint u_ambient_location;
-GLint u_diffuse_location;
-GLint u_specular_location;
-GLint u_shininess_location;
-
+struct shader shader;
 struct mat4 projection;
-
 struct camera camera;
-
-struct vec3 light_pos;
-struct color light_color;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
@@ -131,75 +64,6 @@ bool render_init(GLFWwindow *window)
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_id);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_INDICES * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
 
-    // Vertex shader
-    GLuint vert_shader_id = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vert_shader_id, 1, &vert_shader_str, NULL);
-    glCompileShader(vert_shader_id);
-
-    // Check for vertex shader errors
-    GLint success;
-    char shader_error_msg[512];
-    glGetShaderiv(vert_shader_id, GL_COMPILE_STATUS, &success);
-
-    if (!success)
-    {
-        glGetShaderInfoLog(vert_shader_id, 512, NULL, shader_error_msg);
-        printf("Error! Vertex shader compilation failed!\n%s", shader_error_msg);
-        return false;
-    }
-
-    // Fragment shader
-    GLuint frag_shader_id = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(frag_shader_id, 1, &frag_shader_str, NULL);
-    glCompileShader(frag_shader_id);
-
-    glGetShaderiv(frag_shader_id, GL_COMPILE_STATUS, &success);
-
-    if (!success)
-    {
-        glGetShaderInfoLog(frag_shader_id, 512, NULL, shader_error_msg);
-        printf("Error! Fragment shader compilation failed!\n%s", shader_error_msg);
-        glDeleteShader(vert_shader_id);
-        return false;
-    }
-
-    // Shader program
-    shader_id = glCreateProgram();
-    glAttachShader(shader_id, vert_shader_id);
-    glAttachShader(shader_id, frag_shader_id);
-    glLinkProgram(shader_id);
-
-    // Delete shaders
-    glDeleteShader(vert_shader_id);
-    glDeleteShader(frag_shader_id);
-
-    glGetProgramiv(shader_id, GL_LINK_STATUS, &success);
-    if (!success)
-    {
-        glGetProgramInfoLog(shader_id, 512, NULL, shader_error_msg);
-        printf("Error! Shader linking failed!\n%s", shader_error_msg);
-        return false;
-    }
-
-    glUseProgram(shader_id);
-
-    // Store shader uniform locations
-    u_model_location = glGetUniformLocation(shader_id, "u_model");
-    u_normal_location = glGetUniformLocation(shader_id, "u_normal");
-    u_view_location = glGetUniformLocation(shader_id, "u_view");
-    u_projection_location = glGetUniformLocation(shader_id, "u_projection");
-    u_view_pos_location = glGetUniformLocation(shader_id, "u_view_pos");
-    u_light_pos_location = glGetUniformLocation(shader_id, "u_light.pos");
-    u_light_color_location = glGetUniformLocation(shader_id, "u_light.col");
-    u_sampler_location = glGetUniformLocation(shader_id, "u_sampler");
-    u_ambient_location = glGetUniformLocation(shader_id, "u_material.ambient");
-    u_diffuse_location = glGetUniformLocation(shader_id, "u_material.diffuse");
-    u_specular_location = glGetUniformLocation(shader_id, "u_material.specular");
-    u_shininess_location = glGetUniformLocation(shader_id, "u_material.shininess");
-
-    // Set sampler uniforms
-    glUniform1i(u_sampler_location, 0);
-
     // Vertex attributes
     size_t pos_size = 3 * sizeof(GLfloat);
     size_t norm_size = 3 * sizeof(GLfloat);
@@ -214,15 +78,27 @@ bool render_init(GLFWwindow *window)
             (const GLvoid*)(pos_size + norm_size));
     glEnableVertexAttribArray(2);
 
+    // Create shader
+    if (!load_shader(&shader, "main.vert", "main.frag"))
+    {
+        return false;
+    }
+    glUseProgram(shader.id);
+
+    // Set sampler uniform
+    shader_set_int(&shader, "u_sampler", 0);
+
+    // Set light uniforms
+    shader_set_vec3(&shader, "u_light.direction", vec3_create(-0.2f, -1.0f, -0.3f));
+    shader_set_vec3(&shader, "u_light.ambient", vec3_create(0.2f, 0.2f, 0.2f));
+    shader_set_vec3(&shader, "u_light.diffuse", vec3_create(0.5f, 0.5f, 0.5f));
+    shader_set_vec3(&shader, "u_light.specular", vec3_create(1.0f, 1.0f, 1.0f));
+
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
-    // Initialize matrices
     projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
-
-    camera.transform = transform_create(vec3_create(0.0f, 0.0f, -30.0f));
-
-    light_color = COLOR_WHITE;
+    camera.transform = transform_create(VEC3_ZERO);
 
     return true;
 }
@@ -232,7 +108,7 @@ void render_shutdown()
     glDeleteBuffers(1, &vbo_id);
     glDeleteBuffers(1, &ebo_id);
     glDeleteVertexArrays(1, &vao_id);
-    glDeleteProgram(shader_id);
+    shader_free(&shader);
 }
 
 void set_texture(const struct texture *texture)
@@ -261,37 +137,26 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
     struct mat4 view = camera_view(&camera);
 
     // Upload uniforms
+    shader_set_mat4(&shader, "u_model", &model_matrix);
+    shader_set_mat4(&shader, "u_normal", &normal_matrix);
+    shader_set_mat4(&shader, "u_view", &view);
+    shader_set_mat4(&shader, "u_projection", &projection);
+    shader_set_vec3(&shader, "u_view_pos", camera.transform.pos);
+    shader_set_vec3(&shader, "u_material.ambient", mesh->material.ambient);
+    shader_set_vec3(&shader, "u_material.diffuse", mesh->material.diffuse);
+    shader_set_vec3(&shader, "u_material.specular", mesh->material.specular);
+    shader_set_float(&shader, "u_material.shininess", mesh->material.shininess);
 
-    glUniformMatrix4fv(u_model_location, 1, GL_FALSE, &model_matrix.m11);
-    glUniformMatrix4fv(u_normal_location, 1, GL_FALSE, &normal_matrix.m11);
-    glUniformMatrix4fv(u_view_location, 1, GL_FALSE, &view.m11);
-    glUniformMatrix4fv(u_projection_location, 1, GL_FALSE, &projection.m11);
-
-    glUniform3f(u_view_pos_location, camera.transform.pos.x, camera.transform.pos.y,
-            camera.transform.pos.z);
-    glUniform3f(u_light_pos_location, light_pos.x, light_pos.y, light_pos.z);
-
-    struct vec3 col = color_to_vec3(light_color);
-    glUniform4f(u_light_color_location, col.x, col.y, col.z, 1.0f);
-
-    glUniform3f(u_ambient_location, mesh->material.ambient.x, mesh->material.ambient.y, mesh->material.ambient.z);
-    glUniform3f(u_diffuse_location, mesh->material.diffuse.x, mesh->material.diffuse.y, mesh->material.diffuse.z);
-    glUniform3f(u_specular_location, mesh->material.specular.x, mesh->material.specular.y, mesh->material.specular.z);
-    glUniform1f(u_shininess_location, mesh->material.shininess);
-
-    glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex), mesh->vertices);
-    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort), mesh->indices);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex),
+            mesh->vertices);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort),
+            mesh->indices);
     glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_SHORT, 0);
 }
 
 struct camera *get_camera()
 {
     return &camera;
-}
-
-void set_light_pos(struct vec3 pos)
-{
-    light_pos = pos;
 }
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)

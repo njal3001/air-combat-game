@@ -8,11 +8,17 @@
 
 #define MAX_ASSET_PATH 512
 
+enum asset_type
+{
+    ASSET_SHADER,
+    ASSET_OTHER,
+};
+
 struct hashmap *textures;
 struct hashmap *meshes;
 
-size_t asset_base_length;
 char asset_path[MAX_ASSET_PATH];
+size_t root_length;
 
 struct mesh quad_mesh;
 
@@ -21,22 +27,32 @@ static void texture_free(struct texture *texture);
 static void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count);
 static void mesh_free(struct mesh *mesh);
 
-static void load_asset_path(const char *name)
+static void load_asset_path(enum asset_type type, const char *name)
 {
     // Clear previous asset name
-    memset(asset_path + asset_base_length, 0, MAX_ASSET_PATH - asset_base_length);
+    memset(asset_path + root_length, 0, MAX_ASSET_PATH - root_length);
 
-    // Append name to base asset path
-    strncat(asset_path, name, MAX_ASSET_PATH - asset_base_length);
+    // Select directory
+    switch (type)
+    {
+        case ASSET_SHADER:
+            strcat(asset_path, "src/shaders/");
+            break;
+        case ASSET_OTHER:
+            strcat(asset_path, "assets/");
+            break;
+    }
+
+    // Append name
+    strncat(asset_path, name, MAX_ASSET_PATH - root_length);
 }
 
 void assets_init()
 {
+    // Find root path
     get_exec_path(asset_path, MAX_ASSET_PATH);
     get_dir_path(asset_path, 1);
-    strcat(asset_path, "assets/");
-
-    asset_base_length = strlen(asset_path);
+    root_length = strlen(asset_path);
 
     textures = hashmap_new();
     meshes = hashmap_new();
@@ -79,26 +95,32 @@ void assets_init()
 void assets_free()
 {
     size_t num_textures = hashmap_size(textures);
-    struct texture **t = malloc(num_textures * sizeof(void*));
-    hashmap_values(textures, (void**)t);
-    for (size_t i = 0; i < num_textures; i++)
+    if (num_textures)
     {
-        texture_free(t[i]);
-        free(t[i]);
-    }
+        struct texture **t = malloc(num_textures * sizeof(void*));
+        hashmap_values(textures, (void**)t);
+        for (size_t i = 0; i < num_textures; i++)
+        {
+            texture_free(t[i]);
+            free(t[i]);
+        }
 
-    free(t);
+        free(t);
+    }
 
     size_t num_meshes = hashmap_size(meshes);
-    struct mesh **m = malloc(num_meshes * sizeof(void*));
-    hashmap_values(meshes, (void**)m);
-    for (size_t i = 0; i < num_meshes; i++)
+    if (num_meshes)
     {
-        mesh_free(m[i]);
-        free(m[i]);
-    }
+        struct mesh **m = malloc(num_meshes * sizeof(void*));
+        hashmap_values(meshes, (void**)m);
+        for (size_t i = 0; i < num_meshes; i++)
+        {
+            mesh_free(m[i]);
+            free(m[i]);
+        }
 
-    free(m);
+        free(m);
+    }
 
     hashmap_free(meshes);
     hashmap_free(textures);
@@ -114,7 +136,7 @@ const struct texture *get_texture(const char *name)
         return cached_tex;
     }
 
-    load_asset_path(name);
+    load_asset_path(ASSET_OTHER, name);
 
     int width, height, nchannels;
     unsigned char *data = stbi_load(asset_path, &width, &height, &nchannels, 0);
@@ -151,7 +173,7 @@ const struct mesh *get_mesh(const char *name)
         return cached_mesh;
     }
 
-    load_asset_path(name);
+    load_asset_path(ASSET_OTHER, name);
 
     FILE *f_mesh = fopen(asset_path, "r");
     assert(f_mesh);
@@ -186,7 +208,7 @@ const struct mesh *get_mesh(const char *name)
 
 bool read_polygon(const char *name, struct mesh *mesh)
 {
-    load_asset_path(name);
+    load_asset_path(ASSET_OTHER, name);
     FILE *f = fopen(asset_path, "r");
     if (!f)
     {
@@ -296,6 +318,31 @@ struct shape create_quad()
         .transform = transform_create(VEC3_ZERO),
         .mesh = &quad_mesh,
     };
+}
+
+bool load_shader(struct shader *shader, const char *vert_name, const char *frag_name)
+{
+    load_asset_path(ASSET_SHADER, vert_name);
+    char *vert_str = read_file(asset_path);
+    if (!vert_str)
+    {
+        return false;
+    }
+
+    load_asset_path(ASSET_SHADER, frag_name);
+    char *frag_str = read_file(asset_path);
+    if (!frag_str)
+    {
+        free(vert_str);
+        return false;
+    }
+
+    bool success = shader_init(shader, vert_str, frag_str);
+
+    free(vert_str);
+    free(frag_str);
+
+    return success;
 }
 
 void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)

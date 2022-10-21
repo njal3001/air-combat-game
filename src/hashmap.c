@@ -105,7 +105,7 @@ void hashmap_values(struct hashmap *map, void **values)
         struct hashbucket *bucket = map->buckets + b;
         for (size_t e = 0; e < bucket->count; e++)
         {
-            values[i] = bucket->elements->value;
+            values[i] = bucket->elements[e].value;
             i++;
         }
     }
