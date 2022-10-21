@@ -31,6 +31,9 @@ struct shader shader;
 struct mat4 projection;
 struct camera camera;
 
+struct dir_light dir_light;
+struct point_light point_light;
+
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message, const void *user_param);
@@ -88,11 +91,19 @@ bool render_init(GLFWwindow *window)
     // Set sampler uniform
     shader_set_int(&shader, "u_sampler", 0);
 
-    // Set light uniforms
-    shader_set_vec3(&shader, "u_light.direction", vec3_create(-0.2f, -1.0f, -0.3f));
-    shader_set_vec3(&shader, "u_light.ambient", vec3_create(0.2f, 0.2f, 0.2f));
-    shader_set_vec3(&shader, "u_light.diffuse", vec3_create(0.5f, 0.5f, 0.5f));
-    shader_set_vec3(&shader, "u_light.specular", vec3_create(1.0f, 1.0f, 1.0f));
+    // Default light values
+    dir_light.dir = vec3_create(-0.2f, -1.0f, -0.2f);
+    dir_light.ambient = vec3_create(0.2f, 0.2f, 0.2f);
+    dir_light.diffuse = vec3_create(0.5f, 0.5f, 0.5f);
+    dir_light.specular = vec3_create(1.0f, 1.0f, 1.0f);
+
+    point_light.pos = VEC3_ZERO;
+    point_light.ambient = vec3_create(0.2f, 0.2f, 0.2f);
+    point_light.diffuse = vec3_create(0.5f, 0.5f, 0.5f);
+    point_light.specular = vec3_create(1.0f, 1.0f, 1.0f);
+    point_light.constant = 0.00001f;
+    point_light.linear = 0.000009f;
+    point_light.quadratic = 0.0000032f;
 
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
@@ -136,16 +147,33 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
     struct mat4 normal_matrix = transform->rot;
     struct mat4 view = camera_view(&camera);
 
-    // Upload uniforms
+    // Matrices and view position
     shader_set_mat4(&shader, "u_model", &model_matrix);
     shader_set_mat4(&shader, "u_normal", &normal_matrix);
     shader_set_mat4(&shader, "u_view", &view);
     shader_set_mat4(&shader, "u_projection", &projection);
     shader_set_vec3(&shader, "u_view_pos", camera.transform.pos);
+
+    // Material uniforms
     shader_set_vec3(&shader, "u_material.ambient", mesh->material.ambient);
     shader_set_vec3(&shader, "u_material.diffuse", mesh->material.diffuse);
     shader_set_vec3(&shader, "u_material.specular", mesh->material.specular);
     shader_set_float(&shader, "u_material.shininess", mesh->material.shininess);
+
+    // Direction light
+    shader_set_vec3(&shader, "u_dir_light.dir", dir_light.dir);
+    shader_set_vec3(&shader, "u_dir_light.ambient", dir_light.ambient);
+    shader_set_vec3(&shader, "u_dir_light.diffuse", dir_light.diffuse);
+    shader_set_vec3(&shader, "u_dir_light.specular", dir_light.specular);
+
+    // Point light
+    shader_set_vec3(&shader, "u_point_light.pos", point_light.pos);
+    shader_set_vec3(&shader, "u_point_light.ambient", point_light.ambient);
+    shader_set_vec3(&shader, "u_point_light.diffuse", point_light.diffuse);
+    shader_set_vec3(&shader, "u_point_light.specular", point_light.specular);
+    shader_set_float(&shader, "u_point_light.constant", point_light.constant);
+    shader_set_float(&shader, "u_point_light.linear", point_light.linear);
+    shader_set_float(&shader, "u_point_light.quadratic", point_light.quadratic);
 
     glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex),
             mesh->vertices);
@@ -157,6 +185,16 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
 struct camera *get_camera()
 {
     return &camera;
+}
+
+struct dir_light *get_dir_light()
+{
+    return &dir_light;
+}
+
+struct point_light *get_point_light()
+{
+    return &point_light;
 }
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
