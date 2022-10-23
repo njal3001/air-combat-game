@@ -17,8 +17,8 @@ add_executable(air-combat
     src/transform.c
     src/game.h
     src/game.c
-    src/fighter.h
-    src/fighter.c
+    src/player.h
+    src/player.c
     src/camera.h
     src/camera.c
     src/input.h
@@ -31,6 +31,10 @@ add_executable(air-combat
     src/hashmap.c
     src/shader.h
     src/shader.c
+    src/world.h
+    src/world.c
+    src/collide.h
+    src/collide.c
 )
 
 include_directories(${GLEW_INCLUDE_DIRS})
