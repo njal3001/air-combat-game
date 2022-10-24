@@ -596,6 +596,96 @@ bool load_cubemap(struct cubemap *cmap, const char *const *faces)
     return true;
 }
 
+bool load_font(struct font *font, const char *name)
+{
+    log_info("Loading font: %s", name);
+
+    load_asset_path(ASSET_OTHER, name);
+    FILE *f = fopen(asset_path, "r");
+    if (!f)
+    {
+        log_warn("Could not open file %s", asset_path);
+        return false;
+    }
+
+    char *word;
+    char *line = NULL;
+    size_t blength = 0;
+    int read;
+
+    // Skip font name
+    getline(&line, &blength, f);
+
+    // Font size and line height
+    getline(&line, &blength, f);
+    strtok(line, " ");
+    word = strtok(line, " ");
+    font->lheight = strtol(word, NULL, 10);
+
+    // Bitmap
+    int width, height, nchannels;
+    getline(&line, &blength, f);
+    line[strcspn(line, "\n")] = '\0';
+    load_asset_path(ASSET_OTHER, line);
+
+    unsigned char *data = stbi_load(asset_path, &width, &height, &nchannels, 0);
+    if (!data)
+    {
+        log_warn("Could not open file %s", asset_path);
+        free(line);
+        return false;
+    }
+
+    GLuint tex_id;
+    glGenTextures(1, &tex_id);
+    glBindTexture(GL_TEXTURE_2D, tex_id);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    stbi_image_free(data);
+
+    font->bitmap.id = tex_id;
+    font->bitmap.width = width;
+    font->bitmap.height = height;
+
+    // Number of characters
+    getline(&line, &blength, f);
+    font->num_char = strtol(line, NULL, 10);
+    font->chars = malloc(sizeof(struct fchar) * font->num_char);
+
+    // Character information
+    bool first_char = true;
+    while (getline(&line, &blength, f) != -1)
+    {
+        word = strtok(line, " ");
+        size_t id = strtol(word, NULL, 10);
+        if (!id)
+        {
+            break;
+        }
+
+        if (first_char)
+        {
+            font->start_id = id;
+            first_char = false;
+        }
+
+        struct fchar *c = font->chars + id - font->start_id;
+        c->x = strtol(strtok(NULL, " "), NULL, 10);
+        c->y = strtol(strtok(NULL, " "), NULL, 10);
+        c->w = strtol(strtok(NULL, " "), NULL, 10);
+        c->h = strtol(strtok(NULL, " "), NULL, 10);
+        c->xoff = strtol(strtok(NULL, " "), NULL, 10);
+        c->yoff = strtol(strtok(NULL, " "), NULL, 10);
+        c->adv = strtol(strtok(NULL, " "), NULL, 10);
+    }
+
+    free(line);
+
+    return true;
+}
+
 void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)
 {
     mesh->vertex_count = vertex_count;

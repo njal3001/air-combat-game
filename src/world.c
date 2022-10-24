@@ -116,8 +116,7 @@ void world_render()
     // TODO: Draw opaque objects first, then
     // draw transparent objects in sorted order
 
-    render_begin();
-    set_texture(get_texture("wall.jpg"));
+    render_scene_begin();
 
     size_t num_ac_found = 0;
     for (size_t i = 0; i < MAX_ACTORS; i++)
@@ -135,7 +134,7 @@ void world_render()
         }
     }
 
-    render_end();
+    render_skybox();
 }
 
 void world_free()

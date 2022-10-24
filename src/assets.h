@@ -15,3 +15,4 @@ struct mesh create_cube_mesh();
 
 bool load_shader(struct shader *shader, const char *vert_name, const char *frag_name);
 bool load_cubemap(struct cubemap *cmap, const char *const *faces);
+bool load_font(struct font *font, const char *name);

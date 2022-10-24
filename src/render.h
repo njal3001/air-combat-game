@@ -71,15 +71,36 @@ struct point_light
     float quadratic;
 };
 
+struct fchar
+{
+    uint16_t x;
+    uint16_t y;
+    uint8_t w;
+    uint8_t h;
+    uint8_t xoff;
+    uint8_t yoff;
+    uint8_t adv;
+};
+
+struct font
+{
+    size_t start_id;
+    size_t num_char;
+    uint8_t lheight;
+    struct fchar *chars;
+    struct texture bitmap;
+};
+
 bool render_init(GLFWwindow *window);
 void render_shutdown();
 
 void set_texture(const struct texture *texture);
 
-void render_begin();
-void render_end();
+void render_scene_begin();
+void render_skybox();
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform);
+void render_text(const char *str, float x, float y);
 
 struct camera *get_camera();
 struct dir_light *get_dir_light();

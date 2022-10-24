@@ -18,8 +18,10 @@
 #define MAX_VERTICES 65536
 #define MAX_INDICES 131072
 
+#define MAX_TEXT_VERTICES 1024
+
 #define FOV (M_PI / 4.0f)
-#define ASPECT_RATIO (640.0f / 480.0f)
+#define ASPECT_RATIO (1920.0f / 1080.0f)
 
 float skybox_vertices[] =
 {
@@ -75,9 +77,13 @@ GLuint main_ebo;
 GLuint skybox_vao;
 GLuint skybox_vbo;
 
+GLuint text_vao;
+GLuint text_vbo;
+
 struct shader main_shader;
 struct shader skybox_shader;
 struct cubemap skybox_map;
+struct shader text_shader;
 
 struct mat4 projection;
 struct mat4 view;
@@ -85,6 +91,8 @@ struct camera camera;
 
 struct dir_light dir_light;
 struct point_light point_light;
+
+struct font font;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
@@ -120,6 +128,20 @@ bool render_init(GLFWwindow *window)
 
     // Skybox vertex attributes
     glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (const GLvoid*)NULL);
+    glEnableVertexAttribArray(0);
+
+    // Text vertex array
+    glGenVertexArrays(1, &text_vao);
+    glBindVertexArray(text_vao);
+
+    // Text vertex buffer
+    glGenBuffers(1, &text_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
+    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_VERTICES * 4 * sizeof(GLfloat),
+            NULL, GL_DYNAMIC_DRAW);
+
+    // Text vertex attributes
+    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (const GLvoid*)NULL);
     glEnableVertexAttribArray(0);
 
     // Main vertex array
@@ -174,6 +196,13 @@ bool render_init(GLFWwindow *window)
     glUseProgram(skybox_shader.id);
     shader_set_int(&skybox_shader, "u_skybox", 0);
 
+    // Create text shader
+    load_shader(&text_shader, "text.vert", "text.frag");
+    glUseProgram(text_shader.id);
+    shader_set_int(&text_shader, "u_bitmap", 0);
+    struct mat4 text_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
+    shader_set_mat4(&text_shader, "u_projection", &text_proj);
+
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
@@ -191,6 +220,7 @@ bool render_init(GLFWwindow *window)
     };
 
     load_cubemap(&skybox_map, skybox_faces);
+    load_font(&font, "vcr_osd_mono_regular_48.sfl");
 
     return true;
 }
@@ -214,7 +244,7 @@ void set_texture(const struct texture *texture)
     }
 }
 
-void render_begin()
+void render_scene_begin()
 {
     view = camera_view(&camera);
 
@@ -243,9 +273,8 @@ void render_begin()
     shader_set_float(&main_shader, "u_point_light.quadratic", point_light.quadratic);
 }
 
-void render_end()
+void render_skybox()
 {
-    // Skybox
     struct mat4 skybox_view = mat4_remove_translation(view);
 
     // Change depth function to draw skybox behind all other objects
@@ -256,6 +285,7 @@ void render_end()
     shader_set_mat4(&skybox_shader, "u_projection", &projection);
 
     glBindVertexArray(skybox_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, skybox_vbo);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_map.id);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -264,6 +294,9 @@ void render_end()
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
+    glBindVertexArray(main_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, main_vbo);
+    glUseProgram(main_shader.id);
     if (mesh->material.texture)
     {
         set_texture(mesh->material.texture);
@@ -290,6 +323,83 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort),
             mesh->indices);
     glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_SHORT, 0);
+}
+
+void render_text(const char *str, float x, float y)
+{
+    set_texture(&font.bitmap);
+    glBindVertexArray(text_vao);
+    glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
+    glUseProgram(text_shader.id);
+
+    float curx = x;
+    float cury = y;
+
+    size_t tri_count = 0;
+    float *bmap = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+    uint8_t c;
+    while ((c = *str))
+    {
+        if (c == '\n')
+        {
+            curx = x;
+            // FIXME: Why is the spacing so small?
+            // Adding extra spacing as a quick fix
+            cury -= font.lheight + 10.0f;
+            str++;
+            continue;
+        }
+
+        assert(c >= font.start_id && c < font.start_id + font.num_char);
+
+        struct fchar *fchar = font.chars + c - font.start_id;
+        float x0 = curx + fchar->xoff;
+        float x1 = x0 + fchar->w;
+        float y0 = cury - (fchar->h + fchar->yoff);
+        float y1 = y0 + fchar->h;
+
+        float uvx0 = fchar->x / (float)font.bitmap.width;
+        float uvx1 = (fchar->x + fchar->w) / (float)font.bitmap.width;
+        float uvy0 = (fchar->y + fchar->h) / (float)font.bitmap.height;
+        float uvy1 = fchar->y / (float)font.bitmap.height;
+
+        *(bmap++) = x0;
+        *(bmap++) = y1;
+        *(bmap++) = uvx0;
+        *(bmap++) = uvy1;
+
+        *(bmap++) = x0;
+        *(bmap++) = y0;
+        *(bmap++) = uvx0;
+        *(bmap++) = uvy0;
+
+        *(bmap++) = x1;
+        *(bmap++) = y0;
+        *(bmap++) = uvx1;
+        *(bmap++) = uvy0;
+
+        *(bmap++) = x0;
+        *(bmap++) = y1;
+        *(bmap++) = uvx0;
+        *(bmap++) = uvy1;
+
+        *(bmap++) = x1;
+        *(bmap++) = y0;
+        *(bmap++) = uvx1;
+        *(bmap++) = uvy0;
+
+        *(bmap++) = x1;
+        *(bmap++) = y1;
+        *(bmap++) = uvx1;
+        *(bmap++) = uvy1;
+
+        tri_count += 6;
+        curx += fchar->adv;
+        str++;
+    }
+
+    glUnmapBuffer(GL_ARRAY_BUFFER);
+    glDrawArrays(GL_TRIANGLES, 0, tri_count);
 }
 
 struct camera *get_camera()
