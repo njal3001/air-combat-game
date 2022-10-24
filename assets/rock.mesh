@@ -1,2 +1,6 @@
-rock.ply
-rock/rocktest_specular.png
+model rock.ply
+texture rock/rocktest_specular.png
+ambient 3.5 3.5 3.5
+diffuse 0.8 0.8 0.8
+specular 1.0 1.0 1.0
+shininess 1.0

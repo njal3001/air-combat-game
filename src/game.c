@@ -10,6 +10,7 @@ GLFWwindow *window;
 bool camera_free;
 
 double time_prev;
+size_t ticks;
 
 bool game_init()
 {
@@ -82,6 +83,8 @@ void game_run()
 
         glfwSwapBuffers(window);
         glfwPollEvents();
+
+        ticks++;
     }
 }
 
@@ -95,4 +98,9 @@ void game_shutdown()
 GLFWwindow *get_window()
 {
     return window;
+}
+
+size_t get_ticks()
+{
+    return ticks;
 }

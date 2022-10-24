@@ -70,5 +70,5 @@ void main()
 {
     vec3 light_total = dir_light_out(u_dir_light) + point_light_out(u_point_light);
     // o_col = vec4(light_total, 1.0) * texture(u_sampler, v_uv);
-    o_col = texture(u_sampler, v_uv);
+    o_col = vec4(u_material.ambient, 1.0) * texture(u_sampler, v_uv);
 }

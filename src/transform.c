@@ -47,3 +47,10 @@ void transform_local_rotz(struct transform *t, float delta)
 {
     t->rot = mat4_mul(t->rot, mat4_rotz(delta));
 }
+
+struct mat4 forward_to_rotation(struct vec3 forward, struct vec3 up)
+{
+    struct vec3 target = vec3_add(forward, forward);
+    struct mat4 lookat = mat4_lookat(forward, target, up);
+    return mat4_remove_translation(lookat);
+}

@@ -5,9 +5,9 @@
 
 enum actor_type
 {
-    ACTOR_PLAYER,
-    ACTOR_PROJECTILE,
-    ACTOR_ENEMY,
+    ACTOR_TYPE_PLAYER,
+    ACTOR_TYPE_PROJECTILE,
+    ACTOR_TYPE_ASTEROID,
 };
 
 enum
@@ -35,6 +35,7 @@ struct actor
     struct cbox cbox;
     int flags;
     enum actor_type type;
+    size_t spawn_tick;
     ac_update update;
     ac_render render;
     ac_death death;

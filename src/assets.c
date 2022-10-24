@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include "platform.h"
 #include "hashmap.h"
+#include "log.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "../third_party/stb_image.h"
@@ -341,31 +342,95 @@ const struct mesh *get_mesh(const char *name)
         return cached_mesh;
     }
 
+    log_info("Loading mesh: %s", name);
+
     load_asset_path(ASSET_OTHER, name);
 
     FILE *f_mesh = fopen(asset_path, "r");
-    assert(f_mesh);
+    if (!f_mesh)
+    {
+        log_warn("Could not open file %s", asset_path);
+        return NULL;
+    }
 
     struct mesh *mesh = malloc(sizeof(struct mesh));
+    mesh->indices = NULL;
+    mesh->vertices = NULL;
+    mesh->material.texture = NULL;
 
     char *line = NULL;
     size_t blength = 0;
+    int read;
+    char *word;
 
-    getline(&line, &blength, f_mesh);
-    line[strcspn(line, "\n")] = '\0';
-    bool has_polygon = read_polygon(line, mesh);
-    assert(has_polygon);
+    while ((read = getline(&line, &blength, f_mesh)) != -1)
+    {
+        if (!read)
+        {
+            continue;
+        }
 
-    getline(&line, &blength, f_mesh);
-    line[strcspn(line, "\n")] = '\0';
-    mesh->material.texture = get_texture(line);
-    assert(mesh->material.texture);
+        line[strcspn(line, "\n")] = '\0';
+        word = strtok(line, " ");
 
-    // TODO: Read values from file?
-    mesh->material.ambient = vec3_create(0.2f, 0.2f, 0.2f);
-    mesh->material.diffuse = vec3_create(0.8f, 0.8f, 0.8f);
-    mesh->material.specular = VEC3_ZERO;
-    mesh->material.shininess = 1.0f;
+        if (strcmp(word, "model") == 0)
+        {
+            word = strtok(NULL, " ");
+            bool model_success = read_polygon(word, mesh);
+            if (!model_success)
+            {
+                log_warn("Could not load model");
+                free(line);
+                fclose(f_mesh);
+                mesh_free(mesh);
+                return NULL;
+            }
+        }
+        else if (strcmp(word, "texture") == 0)
+        {
+            word = strtok(NULL, " ");
+            mesh->material.texture = get_texture(word);
+            if (!mesh->material.texture)
+            {
+                log_warn("Could not load texture");
+                free(line);
+                fclose(f_mesh);
+                mesh_free(mesh);
+                return NULL;
+            }
+        }
+        else if (strcmp(word, "shininess") == 0)
+        {
+            float val = strtof(strtok(NULL, " "), NULL);
+            mesh->material.shininess = val;
+        }
+        else
+        {
+            char *sx, *sy, *sz;
+            float x, y, z;
+
+            sx = strtok(NULL, " ");
+            sy = strtok(NULL, " ");
+            sz = strtok(NULL, " ");
+
+            x = strtof(sx, NULL);
+            y = strtof(sy, NULL);
+            z = strtof(sz, NULL);
+
+            if (strcmp(word, "ambient") == 0)
+            {
+                mesh->material.ambient = vec3_create(x, y, z);
+            }
+            else if (strcmp(word, "diffuse") == 0)
+            {
+                mesh->material.diffuse = vec3_create(x, y, z);
+            }
+            else if (strcmp(word, "specular") == 0)
+            {
+                mesh->material.specular = vec3_create(x, y, z);
+            }
+        }
+    }
 
     free(line);
     fclose(f_mesh);
@@ -376,10 +441,13 @@ const struct mesh *get_mesh(const char *name)
 
 bool read_polygon(const char *name, struct mesh *mesh)
 {
+    log_info("Loading polygon: %s", name);
+
     load_asset_path(ASSET_OTHER, name);
     FILE *f = fopen(asset_path, "r");
     if (!f)
     {
+        log_warn("Could not open file %s", asset_path);
         return false;
     }
 

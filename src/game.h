@@ -8,4 +8,4 @@ void game_run();
 void game_shutdown();
 
 GLFWwindow *get_window();
-const char *get_app_name();
+size_t get_ticks();

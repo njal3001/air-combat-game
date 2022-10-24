@@ -35,6 +35,8 @@ add_executable(air-combat
     src/world.c
     src/collide.h
     src/collide.c
+    src/log.h
+    src/log.c
 )
 
 include_directories(${GLEW_INCLUDE_DIRS})
