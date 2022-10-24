@@ -25,10 +25,10 @@ struct actor *spawn_player(struct vec3 pos)
     ac->cbox.bounds = VEC3_ONE;
 
     struct player_data *data = malloc(sizeof(struct player_data));
-    data->speed = 16.0f;
+    data->speed = 32.0f;
     data->rotation_speed = 0.35;
     data->reload = 0.0f;
-    data->mesh = get_cube_mesh();
+    data->mesh = get_mesh("cube.mesh");
     ac->data = data;
 
     return ac;
@@ -70,8 +70,9 @@ void player_update(struct actor *ac, float dt)
     data->reload -= dt;
     if (data->reload <= 0.0f && key_down(GLFW_KEY_K))
     {
-        struct vec3 pr_pos = vec3_add(ac->transform.pos, vec3_mul(forward, 1.2f));
-        struct actor *pr = spawn_projectile(pr_pos, 50.0f);
+        struct vec3 pr_pos = vec3_sub(vec3_add(ac->transform.pos, vec3_mul(forward, 1.2f)),
+                vec3_mul(transform_up(&ac->transform), 2.0f));
+        struct actor *pr = spawn_projectile(pr_pos, 100.0f);
         pr->transform.rot = ac->transform.rot;
 
         data->reload = 0.25f;
@@ -93,7 +94,7 @@ void player_update(struct actor *ac, float dt)
     cam->transform.rot = ac->transform.rot;
 
     // cam->transform.rot = mat4_rotx(M_PI / 2.0f);
-    // cam->transform.pos = vec3_add(player->transform.pos, vec3_mul(VEC3_UP, 50.0f));
+    // cam->transform.pos = vec3_add(ac->transform.pos, vec3_mul(VEC3_UP, 200.0f));
 
     // printf("Pos: ");
     // vec3_print(player->transform.pos);

@@ -5,9 +5,9 @@
 
 enum actor_type
 {
-    ACTOR_TYPE_PLAYER,
-    ACTOR_TYPE_PROJECTILE,
-    ACTOR_TYPE_ASTEROID,
+    ACTOR_TYPE_PLAYER =     1 << 0,
+    ACTOR_TYPE_PROJECTILE = 1 << 1,
+    ACTOR_TYPE_ASTEROID =   1 << 2,
 };
 
 enum
@@ -45,10 +45,11 @@ void world_init();
 void world_update(float dt);
 void world_render();
 void world_end();
+void world_free();
 
 struct actor *new_actor();
 void actor_hurt(struct actor *ac, float dmg);
 
-struct actor *first_collide(const struct actor *ac, enum actor_type type);
+struct actor *first_collide(const struct actor *ac, int type_mask);
 
 struct actor *spawn_projectile(struct vec3 pos, float speed);

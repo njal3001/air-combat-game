@@ -105,6 +105,10 @@ bool render_init(GLFWwindow *window)
     // Culling
     glEnable(GL_CULL_FACE);
 
+    // Blending
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     // Skybox vertex array
     glGenVertexArrays(1, &skybox_vao);
     glBindVertexArray(skybox_vao);

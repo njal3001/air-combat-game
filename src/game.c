@@ -86,6 +86,8 @@ void game_run()
 
         ticks++;
     }
+
+    world_free();
 }
 
 void game_shutdown()
