@@ -21,14 +21,66 @@
 #define FOV (M_PI / 4.0f)
 #define ASPECT_RATIO (640.0f / 480.0f)
 
+float skybox_vertices[] =
+{
+    -1.0f,  1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f, -1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+
+    -1.0f, -1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f,
+    -1.0f, -1.0f,  1.0f,
+
+    -1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f, -1.0f,
+     1.0f,  1.0f,  1.0f,
+     1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f,  1.0f,
+    -1.0f,  1.0f, -1.0f,
+
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f, -1.0f,
+     1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f,  1.0f,
+     1.0f, -1.0f,  1.0f
+};
+
 const struct texture *current_texture;
 
-GLuint vao_id;
-GLuint vbo_id;
-GLuint ebo_id;
+GLuint main_vao;
+GLuint main_vbo;
+GLuint main_ebo;
 
-struct shader shader;
+GLuint skybox_vao;
+GLuint skybox_vbo;
+
+struct shader main_shader;
+struct shader skybox_shader;
+struct cubemap skybox_map;
+
 struct mat4 projection;
+struct mat4 view;
 struct camera camera;
 
 struct dir_light dir_light;
@@ -53,21 +105,34 @@ bool render_init(GLFWwindow *window)
     // Culling
     glEnable(GL_CULL_FACE);
 
-    // Vertex array
-    glGenVertexArrays(1, &vao_id);
-    glBindVertexArray(vao_id);
+    // Skybox vertex array
+    glGenVertexArrays(1, &skybox_vao);
+    glBindVertexArray(skybox_vao);
 
-    // Vertex buffer
-    glGenBuffers(1, &vbo_id);
-    glBindBuffer(GL_ARRAY_BUFFER, vbo_id);
+    // Skybox vertex buffer
+    glGenBuffers(1, &skybox_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, skybox_vbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(skybox_vertices), skybox_vertices, GL_STATIC_DRAW);
+
+    // Skybox vertex attributes
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (const GLvoid*)NULL);
+    glEnableVertexAttribArray(0);
+
+    // Main vertex array
+    glGenVertexArrays(1, &main_vao);
+    glBindVertexArray(main_vao);
+
+    // Main vertex buffer
+    glGenBuffers(1, &main_vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, main_vbo);
     glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(struct vertex), NULL, GL_DYNAMIC_DRAW);
 
-    // Index buffer
-    glGenBuffers(1, &ebo_id);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_id);
+    // Main index buffer
+    glGenBuffers(1, &main_ebo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, main_ebo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_INDICES * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
 
-    // Vertex attributes
+    // Main vertex attributes
     size_t pos_size = 3 * sizeof(GLfloat);
     size_t norm_size = 3 * sizeof(GLfloat);
     size_t uv_size = 2 * sizeof(GLfloat);
@@ -81,15 +146,10 @@ bool render_init(GLFWwindow *window)
             (const GLvoid*)(pos_size + norm_size));
     glEnableVertexAttribArray(2);
 
-    // Create shader
-    if (!load_shader(&shader, "main.vert", "main.frag"))
-    {
-        return false;
-    }
-    glUseProgram(shader.id);
-
-    // Set sampler uniform
-    shader_set_int(&shader, "u_sampler", 0);
+    // Create main shader
+    load_shader(&main_shader, "main.vert", "main.frag");
+    glUseProgram(main_shader.id);
+    shader_set_int(&main_shader, "u_sampler", 0);
 
     // Default light values
     dir_light.dir = vec3_create(-0.2f, -1.0f, -0.2f);
@@ -105,21 +165,38 @@ bool render_init(GLFWwindow *window)
     point_light.linear = 0.000009f;
     point_light.quadratic = 0.0000032f;
 
+    // Create skybox shader
+    load_shader(&skybox_shader, "skybox.vert", "skybox.frag");
+    glUseProgram(skybox_shader.id);
+    shader_set_int(&skybox_shader, "u_skybox", 0);
+
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
     projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
     camera.transform = transform_create(VEC3_ZERO);
 
+    const char *skybox_faces[6] =
+    {
+        "bkg/blue/bkg1_right.png",
+        "bkg/blue/bkg1_left.png",
+        "bkg/blue/bkg1_top.png",
+        "bkg/blue/bkg1_bot.png",
+        "bkg/blue/bkg1_front.png",
+        "bkg/blue/bkg1_back.png",
+    };
+
+    load_cubemap(&skybox_map, skybox_faces);
+
     return true;
 }
 
 void render_shutdown()
 {
-    glDeleteBuffers(1, &vbo_id);
-    glDeleteBuffers(1, &ebo_id);
-    glDeleteVertexArrays(1, &vao_id);
-    shader_free(&shader);
+    glDeleteBuffers(1, &main_vbo);
+    glDeleteBuffers(1, &main_ebo);
+    glDeleteVertexArrays(1, &main_vao);
+    shader_free(&main_shader);
 }
 
 void set_texture(const struct texture *texture)
@@ -133,6 +210,53 @@ void set_texture(const struct texture *texture)
     }
 }
 
+void render_begin()
+{
+    view = camera_view(&camera);
+
+    // Dynamic geomtry
+    glUseProgram(main_shader.id);
+    glBindVertexArray(main_vao);
+
+    // View and projection
+    shader_set_mat4(&main_shader, "u_view", &view);
+    shader_set_mat4(&main_shader, "u_projection", &projection);
+    shader_set_vec3(&main_shader, "u_view_pos", camera.transform.pos);
+
+    // Direction light
+    shader_set_vec3(&main_shader, "u_dir_light.dir", dir_light.dir);
+    shader_set_vec3(&main_shader, "u_dir_light.ambient", dir_light.ambient);
+    shader_set_vec3(&main_shader, "u_dir_light.diffuse", dir_light.diffuse);
+    shader_set_vec3(&main_shader, "u_dir_light.specular", dir_light.specular);
+
+    // Point light
+    shader_set_vec3(&main_shader, "u_point_light.pos", point_light.pos);
+    shader_set_vec3(&main_shader, "u_point_light.ambient", point_light.ambient);
+    shader_set_vec3(&main_shader, "u_point_light.diffuse", point_light.diffuse);
+    shader_set_vec3(&main_shader, "u_point_light.specular", point_light.specular);
+    shader_set_float(&main_shader, "u_point_light.constant", point_light.constant);
+    shader_set_float(&main_shader, "u_point_light.linear", point_light.linear);
+    shader_set_float(&main_shader, "u_point_light.quadratic", point_light.quadratic);
+}
+
+void render_end()
+{
+    // Skybox
+    struct mat4 skybox_view = mat4_remove_translation(view);
+
+    // Change depth function to draw skybox behind all other objects
+    glDepthFunc(GL_LEQUAL);
+
+    glUseProgram(skybox_shader.id);
+    shader_set_mat4(&skybox_shader, "u_view", &skybox_view);
+    shader_set_mat4(&skybox_shader, "u_projection", &projection);
+
+    glBindVertexArray(skybox_vao);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_map.id);
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+
+    glDepthFunc(GL_LESS);
+}
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
@@ -145,35 +269,17 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
                  transform->rot), mat4_scale(transform->scale));
     // NOTE: Need to use scale matrix if non uniform scaling
     struct mat4 normal_matrix = transform->rot;
-    struct mat4 view = camera_view(&camera);
 
     // Matrices and view position
-    shader_set_mat4(&shader, "u_model", &model_matrix);
-    shader_set_mat4(&shader, "u_normal", &normal_matrix);
-    shader_set_mat4(&shader, "u_view", &view);
-    shader_set_mat4(&shader, "u_projection", &projection);
-    shader_set_vec3(&shader, "u_view_pos", camera.transform.pos);
+    shader_set_mat4(&main_shader, "u_model", &model_matrix);
+    shader_set_mat4(&main_shader, "u_normal", &normal_matrix);
 
     // Material uniforms
-    shader_set_vec3(&shader, "u_material.ambient", mesh->material.ambient);
-    shader_set_vec3(&shader, "u_material.diffuse", mesh->material.diffuse);
-    shader_set_vec3(&shader, "u_material.specular", mesh->material.specular);
-    shader_set_float(&shader, "u_material.shininess", mesh->material.shininess);
+    shader_set_vec3(&main_shader, "u_material.ambient", mesh->material.ambient);
+    shader_set_vec3(&main_shader, "u_material.diffuse", mesh->material.diffuse);
+    shader_set_vec3(&main_shader, "u_material.specular", mesh->material.specular);
+    shader_set_float(&main_shader, "u_material.shininess", mesh->material.shininess);
 
-    // Direction light
-    shader_set_vec3(&shader, "u_dir_light.dir", dir_light.dir);
-    shader_set_vec3(&shader, "u_dir_light.ambient", dir_light.ambient);
-    shader_set_vec3(&shader, "u_dir_light.diffuse", dir_light.diffuse);
-    shader_set_vec3(&shader, "u_dir_light.specular", dir_light.specular);
-
-    // Point light
-    shader_set_vec3(&shader, "u_point_light.pos", point_light.pos);
-    shader_set_vec3(&shader, "u_point_light.ambient", point_light.ambient);
-    shader_set_vec3(&shader, "u_point_light.diffuse", point_light.diffuse);
-    shader_set_vec3(&shader, "u_point_light.specular", point_light.specular);
-    shader_set_float(&shader, "u_point_light.constant", point_light.constant);
-    shader_set_float(&shader, "u_point_light.linear", point_light.linear);
-    shader_set_float(&shader, "u_point_light.quadratic", point_light.quadratic);
 
     glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex),
             mesh->vertices);

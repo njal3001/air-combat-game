@@ -443,6 +443,19 @@ struct mat4 mat4_transpose(struct mat4 m)
     return res;
 }
 
+struct mat4 mat4_remove_translation(struct mat4 m)
+{
+    m.m14 = 0.0f;
+    m.m24 = 0.0f;
+    m.m34 = 0.0f;
+    m.m41 = 0.0f;
+    m.m42 = 0.0f;
+    m.m43 = 0.0f;
+    m.m44 = 1.0f;
+
+    return m;
+}
+
 void vec3_print(struct vec3 v)
 {
     printf("(%f, %f, %f)\n", v.x, v.y, v.z);

@@ -314,9 +314,11 @@ const struct texture *get_texture(const char *name)
 
     GLuint tex_id;
     glGenTextures(1, &tex_id);
-
     glBindTexture(GL_TEXTURE_2D, tex_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+    GLenum format = nchannels == 4 ? GL_RGBA : GL_RGB;
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -509,6 +511,35 @@ bool load_shader(struct shader *shader, const char *vert_name, const char *frag_
     free(frag_str);
 
     return success;
+}
+
+bool load_cubemap(struct cubemap *cmap, const char *const *faces)
+{
+    glGenTextures(1, &cmap->id);
+    glBindTexture(GL_TEXTURE_CUBE_MAP, cmap->id);
+
+    int width, height, nchannels;
+    for (size_t i = 0; i < 6; i++)
+    {
+        load_asset_path(ASSET_OTHER, faces[i]);
+        unsigned char *data = stbi_load(asset_path, &width, &height, &nchannels, 0);
+        if (!data)
+        {
+            return false;
+        }
+
+        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB,
+                width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+        stbi_image_free(data);
+    }
+
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+
+    return true;
 }
 
 void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)

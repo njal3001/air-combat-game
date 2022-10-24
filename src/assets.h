@@ -12,3 +12,4 @@ const struct mesh *get_quad_mesh();
 const struct mesh *get_cube_mesh();
 
 bool load_shader(struct shader *shader, const char *vert_name, const char *frag_name);
+bool load_cubemap(struct cubemap *cmap, const char *const *faces);

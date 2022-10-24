@@ -84,6 +84,7 @@ void world_update(float dt)
 
 void world_render()
 {
+    render_begin();
     set_texture(get_texture("wall.jpg"));
 
     size_t num_ac_found = 0;
@@ -92,7 +93,7 @@ void world_render()
         struct actor *pr = actors + i;
         if (pr->id)
         {
-            projectile_render(pr);
+            pr->render(pr);
             num_ac_found++;
 
             if (num_ac_found == num_actors)
@@ -101,6 +102,8 @@ void world_render()
             }
         }
     }
+
+    render_end();
 }
 
 void world_end()
@@ -250,6 +253,6 @@ void asteroid_update(struct actor *ac, float dt)
 
 void asteroid_render(struct actor *ac)
 {
-    const struct mesh *m = get_cube_mesh();
+    const struct mesh *m = get_mesh("rock.mesh");
     render_mesh(m, &ac->transform);
 }

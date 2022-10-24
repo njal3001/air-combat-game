@@ -25,7 +25,7 @@ struct actor *spawn_player(struct vec3 pos)
     ac->cbox.bounds = VEC3_ONE;
 
     struct player_data *data = malloc(sizeof(struct player_data));
-    data->speed = 8.0f;
+    data->speed = 16.0f;
     data->rotation_speed = 0.35;
     data->reload = 0.0f;
     data->mesh = get_cube_mesh();
@@ -77,16 +77,16 @@ void player_update(struct actor *ac, float dt)
         data->reload = 0.25f;
     }
 
-    if (key_down(GLFW_KEY_UP))
-    {
-        vec3_add_eq(&ac->transform.pos, vec3_mul(forward, dpos));
-    }
-    else if (key_down(GLFW_KEY_DOWN))
-    {
-        vec3_sub_eq(&ac->transform.pos, vec3_mul(forward, dpos));
-    }
+    // if (key_down(GLFW_KEY_UP))
+    // {
+    //     vec3_add_eq(&ac->transform.pos, vec3_mul(forward, dpos));
+    // }
+    // else if (key_down(GLFW_KEY_DOWN))
+    // {
+    //     vec3_sub_eq(&ac->transform.pos, vec3_mul(forward, dpos));
+    // }
 
-    //vec3_add_eq(&player->transform.pos, vec3_mul(forward, dpos));
+    vec3_add_eq(&ac->transform.pos, vec3_mul(forward, dpos));
 
     struct camera *cam = get_camera();
     cam->transform.pos = ac->transform.pos;
