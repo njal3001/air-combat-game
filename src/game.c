@@ -5,6 +5,13 @@
 #include "input.h"
 #include "assets.h"
 #include "world.h"
+#include "menu.h"
+
+enum gstate
+{
+    GSTATE_MENU,
+    GSTATE_PLAY,
+};
 
 GLFWwindow *window;
 bool camera_free;
@@ -12,12 +19,14 @@ bool camera_free;
 double time_prev;
 size_t ticks;
 
+enum gstate state = GSTATE_MENU;
+
 bool game_init()
 {
     if (!glfwInit())
         return false;
 
-    window = glfwCreateWindow(640, 480, "Air Combat!", NULL, NULL);
+    window = glfwCreateWindow(640, 480, GAME_NAME, NULL, NULL);
     if (!window)
     {
         glfwTerminate();
@@ -61,25 +70,43 @@ void game_run()
         time_prev = time_now;
 
         input_update(window);
-
-        // NOTE: Debug only
-        if (key_pressed(GLFW_KEY_ESCAPE))
-        {
-            camera_free = !camera_free;
-        }
-
-        if (camera_free)
-        {
-            camera_free_update(get_camera());
-        }
-        else
-        {
-            world_update(dt);
-        }
-
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        world_render();
+        switch (state)
+        {
+            case GSTATE_MENU:
+            {
+                enum menu_event mevent = menu_update();
+                if (mevent == MENU_EVENT_PLAY)
+                {
+                    state = GSTATE_PLAY;
+                }
+
+                menu_render();
+                break;
+            }
+            case GSTATE_PLAY:
+            {
+                // NOTE: Debug only
+                if (key_pressed(GLFW_KEY_ESCAPE))
+                {
+                    camera_free = !camera_free;
+                }
+
+                if (camera_free)
+                {
+                    camera_free_update(get_camera());
+                }
+                else
+                {
+                    world_update(dt);
+                }
+
+                world_render();
+                break;
+            }
+        }
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -30,6 +30,8 @@ size_t num_actors;
 bool world_ended;
 size_t tick;
 
+uint32_t score;
+
 static void projectile_update(struct actor *ac, float dt);
 static void projectile_render(struct actor *ac);
 
@@ -116,6 +118,7 @@ void world_render()
     // TODO: Draw opaque objects first, then
     // draw transparent objects in sorted order
 
+    render_skybox();
     render_scene_begin();
 
     size_t num_ac_found = 0;
@@ -134,7 +137,9 @@ void world_render()
         }
     }
 
-    render_skybox();
+    static char scorestr[64];
+    snprintf(scorestr, 64, "Score: %d", score);
+    render_text(scorestr, 10.0f, 1080.0f, 0.5f);
 }
 
 void world_free()
@@ -311,6 +316,8 @@ void asteroid_death(struct actor *ac)
         spawn_asteroid(vec3_add(ac->transform.pos, vec3_mul(new_dir, offset)), new_dir, data->size - 1);
         spawn_asteroid(vec3_sub(ac->transform.pos, vec3_mul(new_dir, -offset)), vec3_neg(new_dir), data->size - 1);
     }
+
+    score += 100 * data->size;
 }
 
 void asteroid_render(struct actor *ac)

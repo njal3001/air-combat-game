@@ -100,7 +100,7 @@ void render_scene_begin();
 void render_skybox();
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform);
-void render_text(const char *str, float x, float y);
+void render_text(const char *str, float x, float y, float size);
 
 struct camera *get_camera();
 struct dir_light *get_dir_light();

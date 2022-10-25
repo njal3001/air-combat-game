@@ -707,3 +707,9 @@ void mesh_free(struct mesh *mesh)
     free(mesh->indices);
     free(mesh->vertices);
 }
+
+void font_free(struct font *font)
+{
+    free(font->chars);
+    texture_free(&font->bitmap);
+}

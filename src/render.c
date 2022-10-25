@@ -231,6 +231,9 @@ void render_shutdown()
     glDeleteBuffers(1, &main_ebo);
     glDeleteVertexArrays(1, &main_vao);
     shader_free(&main_shader);
+    shader_free(&skybox_shader);
+    shader_free(&text_shader);
+    font_free(&font);
 }
 
 void set_texture(const struct texture *texture)
@@ -275,7 +278,7 @@ void render_scene_begin()
 
 void render_skybox()
 {
-    struct mat4 skybox_view = mat4_remove_translation(view);
+    struct mat4 skybox_view = mat4_remove_translation(camera_view(&camera));
 
     // Change depth function to draw skybox behind all other objects
     glDepthFunc(GL_LEQUAL);
@@ -325,7 +328,7 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
     glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_SHORT, 0);
 }
 
-void render_text(const char *str, float x, float y)
+void render_text(const char *str, float x, float y, float size)
 {
     set_texture(&font.bitmap);
     glBindVertexArray(text_vao);
@@ -353,10 +356,10 @@ void render_text(const char *str, float x, float y)
         assert(c >= font.start_id && c < font.start_id + font.num_char);
 
         struct fchar *fchar = font.chars + c - font.start_id;
-        float x0 = curx + fchar->xoff;
-        float x1 = x0 + fchar->w;
-        float y0 = cury - (fchar->h + fchar->yoff);
-        float y1 = y0 + fchar->h;
+        float x0 = curx + fchar->xoff * size;
+        float x1 = x0 + fchar->w * size;
+        float y0 = cury - (fchar->h + fchar->yoff) * size;
+        float y1 = y0 + fchar->h * size;
 
         float uvx0 = fchar->x / (float)font.bitmap.width;
         float uvx1 = (fchar->x + fchar->w) / (float)font.bitmap.width;
@@ -394,7 +397,7 @@ void render_text(const char *str, float x, float y)
         *(bmap++) = uvy1;
 
         tri_count += 6;
-        curx += fchar->adv;
+        curx += fchar->adv * size;
         str++;
     }
 

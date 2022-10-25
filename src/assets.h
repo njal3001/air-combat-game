@@ -9,6 +9,7 @@ const struct texture *get_texture(const char *name);
 const struct mesh *get_mesh(const char *name);
 
 void mesh_free(struct mesh *mesh);
+void font_free(struct font *font);
 
 struct mesh create_quad_mesh();
 struct mesh create_cube_mesh();
