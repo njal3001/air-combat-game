@@ -6,6 +6,7 @@
 #include "assets.h"
 #include "world.h"
 #include "menu.h"
+#include "audio.h"
 
 enum gstate
 {
@@ -48,7 +49,15 @@ bool game_init()
     {
         assets_free();
         glfwTerminate();
-        printf("Failed to initialize renderer!\n");
+        printf("Failed to initialize renderer!");
+        return false;
+    }
+
+    if (!audio_init())
+    {
+        assets_free();
+        glfwTerminate();
+        printf("Failed to initialize audio\n");
         return false;
     }
 
@@ -60,6 +69,7 @@ bool game_init()
 void game_run()
 {
     world_init();
+    audio_play("outthere.wav");
 
     time_prev = glfwGetTime();
 

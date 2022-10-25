@@ -7,6 +7,7 @@
 #include "input.h"
 #include "assets.h"
 #include "world.h"
+#include "audio.h"
 
 static void player_update(struct actor *ac, float dt);
 static void player_render(struct actor *ac);
@@ -76,6 +77,7 @@ void player_update(struct actor *ac, float dt)
         pr->transform.rot = ac->transform.rot;
 
         data->reload = 0.25f;
+        audio_play("laser7.wav");
     }
 
     if (key_down(GLFW_KEY_UP))

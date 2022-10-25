@@ -5,15 +5,9 @@
 #include "log.h"
 
 #define STB_IMAGE_IMPLEMENTATION
-#include "../third_party/stb_image.h"
+#include "third_party/stb_image.h"
 
 #define MAX_ASSET_PATH 512
-
-enum asset_type
-{
-    ASSET_SHADER,
-    ASSET_OTHER,
-};
 
 struct hashmap *textures;
 struct hashmap *meshes;
@@ -88,6 +82,12 @@ void assets_free()
 
     hashmap_free(meshes);
     hashmap_free(textures);
+}
+
+const char *get_asset_path(enum asset_type type, const char *name)
+{
+    load_asset_path(type, name);
+    return asset_path;
 }
 
 const struct texture *get_texture(const char *name)

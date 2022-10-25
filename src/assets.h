@@ -2,8 +2,16 @@
 #include "render.h"
 #include "shader.h"
 
+enum asset_type
+{
+    ASSET_SHADER,
+    ASSET_OTHER,
+};
+
 void assets_init();
 void assets_free();
+
+const char *get_asset_path(enum asset_type type, const char *name);
 
 const struct texture *get_texture(const char *name);
 const struct mesh *get_mesh(const char *name);

@@ -6,6 +6,7 @@
 #include "assets.h"
 #include "collide.h"
 #include "game.h"
+#include "audio.h"
 
 #define MAX_ACTORS 1024
 
@@ -242,6 +243,7 @@ void projectile_update(struct actor *pr, float dt)
     {
         actor_hurt(hit, 12.5f);
         pr->flags |= ACTOR_DEAD;
+        audio_play("bomb.wav");
     }
     else
     {

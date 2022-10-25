@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.12)
 project(air-combat)
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_C_FLAGS "-W -g")
 
 find_package(glfw3 3.3 REQUIRED)
@@ -39,9 +40,11 @@ add_executable(air-combat
     src/log.c
     src/menu.h
     src/menu.c
+    src/audio.h
+    src/audio.c
 )
 
-include_directories(${GLEW_INCLUDE_DIRS})
+include_directories(. ${GLEW_INCLUDE_DIRS})
 
 target_link_libraries(air-combat glfw ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
 
