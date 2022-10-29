@@ -7,6 +7,7 @@
 #include <math.h>
 #include "shader.h"
 #include "assets.h"
+#include "vertex.h"
 
 #ifdef _WIN32
 #    define WIN32_LEAN_AND_MEAN
@@ -19,8 +20,9 @@
 #define MAX_INDICES 131072
 
 #define MAX_TEXT_VERTICES 1024
+#define MAX_UNTEXTURED_VERTICES 1024
 
-#define FOV (M_PI / 4.0f)
+#define FOV (M_PI / 2.5f)
 #define ASPECT_RATIO (1920.0f / 1080.0f)
 
 float skybox_vertices[] =
@@ -70,15 +72,9 @@ float skybox_vertices[] =
 
 const struct texture *current_texture;
 
-GLuint main_vao;
-GLuint main_vbo;
-GLuint main_ebo;
-
-GLuint skybox_vao;
-GLuint skybox_vbo;
-
-GLuint text_vao;
-GLuint text_vbo;
+struct vert_array main_vao;
+struct vert_array skybox_vao;
+struct vert_array text_vao;
 
 struct shader main_shader;
 struct shader skybox_shader;
@@ -117,60 +113,57 @@ bool render_init(GLFWwindow *window)
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Skybox vertex array
-    glGenVertexArrays(1, &skybox_vao);
-    glBindVertexArray(skybox_vao);
-
-    // Skybox vertex buffer
-    glGenBuffers(1, &skybox_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, skybox_vbo);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(skybox_vertices), skybox_vertices, GL_STATIC_DRAW);
-
-    // Skybox vertex attributes
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat), (const GLvoid*)NULL);
-    glEnableVertexAttribArray(0);
-
-    // Text vertex array
-    glGenVertexArrays(1, &text_vao);
-    glBindVertexArray(text_vao);
-
-    // Text vertex buffer
-    glGenBuffers(1, &text_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_TEXT_VERTICES * 4 * sizeof(GLfloat),
-            NULL, GL_DYNAMIC_DRAW);
-
-    // Text vertex attributes
-    glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(GLfloat), (const GLvoid*)NULL);
-    glEnableVertexAttribArray(0);
+    // Window resize callback
+    glfwSetWindowSizeCallback(window, on_window_size_changed);
 
     // Main vertex array
-    glGenVertexArrays(1, &main_vao);
-    glBindVertexArray(main_vao);
+    struct vert_array_data main_data;
+    main_data.vbo_size = MAX_VERTICES;
+    main_data.ebo_size = MAX_INDICES;
+    main_data.vbo_data = NULL;
+    main_data.ebo_data = NULL;
 
-    // Main vertex buffer
-    glGenBuffers(1, &main_vbo);
-    glBindBuffer(GL_ARRAY_BUFFER, main_vbo);
-    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(struct vertex), NULL, GL_DYNAMIC_DRAW);
+    struct vert_attrib pos_attrib =
+    {
+        .type = VTYPE_FLOAT3,
+        .normalized = false,
+    };
+    struct vert_attrib norm_attrib =
+    {
+        .type = VTYPE_FLOAT3,
+        .normalized = false,
+    };
+    struct vert_attrib uv_attrib =
+    {
+        .type = VTYPE_FLOAT2,
+        .normalized = false,
+    };
 
-    // Main index buffer
-    glGenBuffers(1, &main_ebo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, main_ebo);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, MAX_INDICES * sizeof(GLushort), NULL, GL_DYNAMIC_DRAW);
+    vert_array_init(&main_vao, &main_data, VARRAY_DYNAMIC, 3, pos_attrib, norm_attrib, uv_attrib);
 
-    // Main vertex attributes
-    size_t pos_size = 3 * sizeof(GLfloat);
-    size_t norm_size = 3 * sizeof(GLfloat);
-    size_t uv_size = 2 * sizeof(GLfloat);
-    size_t stride = pos_size + norm_size + uv_size;
+    // Skybox vertex array
+    struct vert_array_data skybox_data;
+    skybox_data.vbo_size = 36;
+    skybox_data.ebo_size = 0;
+    skybox_data.vbo_data = skybox_vertices;
+    skybox_data.ebo_data = NULL;
 
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)NULL);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, stride, (const GLvoid*)pos_size);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, stride,
-            (const GLvoid*)(pos_size + norm_size));
-    glEnableVertexAttribArray(2);
+    vert_array_init(&skybox_vao, &skybox_data, VARRAY_STATIC, 1, pos_attrib);
+
+    // Text vertex array
+    struct vert_array_data text_data;
+    text_data.vbo_size = MAX_TEXT_VERTICES;
+    text_data.ebo_size = 0;
+    text_data.vbo_data = NULL;
+    text_data.ebo_data = NULL;
+
+    struct vert_attrib text_attrib =
+    {
+        .type = VTYPE_FLOAT4,
+        .normalized = false,
+    };
+
+    vert_array_init(&text_vao, &text_data, VARRAY_DYNAMIC, 1, text_attrib);
 
     // Create main shader
     load_shader(&main_shader, "main.vert", "main.frag");
@@ -203,12 +196,6 @@ bool render_init(GLFWwindow *window)
     struct mat4 text_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
     shader_set_mat4(&text_shader, "u_projection", &text_proj);
 
-    // Window resize callback
-    glfwSetWindowSizeCallback(window, on_window_size_changed);
-
-    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
-    camera.transform = transform_create(VEC3_ZERO);
-
     const char *skybox_faces[6] =
     {
         "bkg/blue/bkg1_right.png",
@@ -222,14 +209,17 @@ bool render_init(GLFWwindow *window)
     load_cubemap(&skybox_map, skybox_faces);
     load_font(&font, "vcr_osd_mono_regular_48.sfl");
 
+    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
+    camera.transform = transform_create(VEC3_ZERO);
+
     return true;
 }
 
 void render_shutdown()
 {
-    glDeleteBuffers(1, &main_vbo);
-    glDeleteBuffers(1, &main_ebo);
-    glDeleteVertexArrays(1, &main_vao);
+    vert_array_free(&main_vao);
+    vert_array_free(&skybox_vao);
+    vert_array_free(&text_vao);
     shader_free(&main_shader);
     shader_free(&skybox_shader);
     shader_free(&text_shader);
@@ -253,7 +243,8 @@ void render_scene_begin()
 
     // Dynamic geomtry
     glUseProgram(main_shader.id);
-    glBindVertexArray(main_vao);
+    // glBindVertexArray(main_vao);
+    glBindVertexArray(main_vao.id);
 
     // View and projection
     shader_set_mat4(&main_shader, "u_view", &view);
@@ -287,8 +278,8 @@ void render_skybox()
     shader_set_mat4(&skybox_shader, "u_view", &skybox_view);
     shader_set_mat4(&skybox_shader, "u_projection", &projection);
 
-    glBindVertexArray(skybox_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, skybox_vbo);
+    glBindVertexArray(skybox_vao.id);
+    glBindBuffer(GL_ARRAY_BUFFER, skybox_vao.vbo);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_map.id);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
@@ -297,8 +288,8 @@ void render_skybox()
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform)
 {
-    glBindVertexArray(main_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, main_vbo);
+    glBindVertexArray(main_vao.id);
+    glBindBuffer(GL_ARRAY_BUFFER, main_vao.vbo);
     glUseProgram(main_shader.id);
     if (mesh->material.texture)
     {
@@ -321,7 +312,7 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
     shader_set_float(&main_shader, "u_material.shininess", mesh->material.shininess);
 
 
-    glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vertex),
+    glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vert_main),
             mesh->vertices);
     glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort),
             mesh->indices);
@@ -331,15 +322,15 @@ void render_mesh(const struct mesh *mesh, const struct transform *transform)
 void render_text(const char *str, float x, float y, float size)
 {
     set_texture(&font.bitmap);
-    glBindVertexArray(text_vao);
-    glBindBuffer(GL_ARRAY_BUFFER, text_vbo);
+    glBindVertexArray(text_vao.id);
+    glBindBuffer(GL_ARRAY_BUFFER, text_vao.vbo);
     glUseProgram(text_shader.id);
 
     float curx = x;
     float cury = y;
 
     size_t tri_count = 0;
-    float *bmap = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+    struct vert_text *bmap = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
     uint8_t c;
     while ((c = *str))
     {
@@ -348,7 +339,7 @@ void render_text(const char *str, float x, float y, float size)
             curx = x;
             // FIXME: Why is the spacing so small?
             // Adding extra spacing as a quick fix
-            cury -= font.lheight + 10.0f;
+            cury -= (font.lheight + 10.0f) * size;
             str++;
             continue;
         }
@@ -366,35 +357,41 @@ void render_text(const char *str, float x, float y, float size)
         float uvy0 = (fchar->y + fchar->h) / (float)font.bitmap.height;
         float uvy1 = fchar->y / (float)font.bitmap.height;
 
-        *(bmap++) = x0;
-        *(bmap++) = y1;
-        *(bmap++) = uvx0;
-        *(bmap++) = uvy1;
+        bmap->x = x0;
+        bmap->y = y1;
+        bmap->uvx = uvx0;
+        bmap->uvy = uvy1;
+        bmap++;
 
-        *(bmap++) = x0;
-        *(bmap++) = y0;
-        *(bmap++) = uvx0;
-        *(bmap++) = uvy0;
+        bmap->x = x0;
+        bmap->y = y0;
+        bmap->uvx = uvx0;
+        bmap->uvy = uvy0;
+        bmap++;
 
-        *(bmap++) = x1;
-        *(bmap++) = y0;
-        *(bmap++) = uvx1;
-        *(bmap++) = uvy0;
+        bmap->x = x1;
+        bmap->y = y0;
+        bmap->uvx = uvx1;
+        bmap->uvy = uvy0;
+        bmap++;
 
-        *(bmap++) = x0;
-        *(bmap++) = y1;
-        *(bmap++) = uvx0;
-        *(bmap++) = uvy1;
+        bmap->x = x0;
+        bmap->y = y1;
+        bmap->uvx = uvx0;
+        bmap->uvy = uvy1;
+        bmap++;
 
-        *(bmap++) = x1;
-        *(bmap++) = y0;
-        *(bmap++) = uvx1;
-        *(bmap++) = uvy0;
+        bmap->x = x1;
+        bmap->y = y0;
+        bmap->uvx = uvx1;
+        bmap->uvy = uvy0;
+        bmap++;
 
-        *(bmap++) = x1;
-        *(bmap++) = y1;
-        *(bmap++) = uvx1;
-        *(bmap++) = uvy1;
+        bmap->x = x1;
+        bmap->y = y1;
+        bmap->uvx = uvx1;
+        bmap->uvy = uvy1;
+        bmap++;
 
         tri_count += 6;
         curx += fchar->adv * size;

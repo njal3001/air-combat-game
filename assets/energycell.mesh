@@ -1,0 +1,6 @@
+model EnergyCell.ply
+texture EnergyCell.png
+ambient 3.5 3.5 3.5
+diffuse 0.8 0.8 0.8
+specular 1.0 1.0 1.0
+shininess 1.0

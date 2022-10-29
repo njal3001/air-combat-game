@@ -15,12 +15,24 @@ struct color
     uint8_t a;
 };
 
-struct vertex
+struct vert_main
 {
     struct vec3 pos;
     struct vec3 norm;
     float uvx;
     float uvy;
+};
+
+struct vert_text
+{
+    float x, y;
+    float uvx, uvy;
+};
+
+struct vert_untextured
+{
+    struct vec3 pos;
+    struct color col;
 };
 
 struct texture
@@ -45,7 +57,7 @@ struct material
 
 struct mesh
 {
-    struct vertex *vertices;
+    struct vert_main *vertices;
     GLushort *indices;
     size_t vertex_count;
     size_t index_count;
@@ -101,6 +113,7 @@ void render_skybox();
 
 void render_mesh(const struct mesh *mesh, const struct transform *transform);
 void render_text(const char *str, float x, float y, float size);
+void render_line(struct vec3 a, struct vec3 b, float thickness, struct color col);
 
 struct camera *get_camera();
 struct dir_light *get_dir_light();

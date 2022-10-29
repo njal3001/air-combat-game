@@ -8,6 +8,17 @@
 #include "assets.h"
 #include "world.h"
 #include "audio.h"
+#include "calc.h"
+#include "timer.h"
+
+#define SPD_NORM 500.0f
+#define SPD_MIN 400.0f
+#define SPD_MAX 600.0f
+#define ACCEL 100.0f
+#define ANG_ACCEL 3.0f
+#define ANG_SPD_MAX 1.0f
+#define ENERGY_MAX 25.0f
+#define ENERGY_REFILL 3.0f
 
 static void player_update(struct actor *ac, float dt);
 static void player_render(struct actor *ac);
@@ -26,8 +37,10 @@ struct actor *spawn_player(struct vec3 pos)
     ac->cbox.bounds = VEC3_ONE;
 
     struct player_data *data = malloc(sizeof(struct player_data));
-    data->speed = 32.0f;
-    data->rotation_speed = 0.35;
+    data->spd = SPD_NORM;
+    data->ang_spdx = 0.0f;
+    data->ang_spdy = 0.0f;
+    data->energy = ENERGY_MAX;
     data->reload = 0.0f;
     data->mesh = get_mesh("cube.mesh");
     ac->data = data;
@@ -38,73 +51,77 @@ struct actor *spawn_player(struct vec3 pos)
 void player_update(struct actor *ac, float dt)
 {
     struct player_data *data = ac->data;
-    float drot = data->rotation_speed * dt;
-    float dpos = data->speed * dt;
+    struct vec3 fwd = transform_forward(&ac->transform);
 
-    if (key_down(GLFW_KEY_W))
+    int dir = key_down(GLFW_KEY_K) - key_down(GLFW_KEY_J);
+    int rdirx = key_down(GLFW_KEY_S) - key_down(GLFW_KEY_W);
+    int rdiry = key_down(GLFW_KEY_A) - key_down(GLFW_KEY_D);
+
+    if (rdirx)
     {
-        transform_local_rotx(&ac->transform, -drot);
+        data->ang_spdx = fclamp(-ANG_SPD_MAX,
+                data->ang_spdx + ANG_ACCEL * dt * rdirx, ANG_SPD_MAX);
     }
-    if (key_down(GLFW_KEY_S))
+    else
     {
-        transform_local_rotx(&ac->transform, drot);
+        data->ang_spdx = approach(data->ang_spdx, 0.0f, ANG_ACCEL * dt);
     }
-    if (key_down(GLFW_KEY_D))
+    transform_local_rotx(&ac->transform, data->ang_spdx * dt);
+
+    if (rdiry)
     {
-        transform_local_roty(&ac->transform, -drot);
+        data->ang_spdy = fclamp(-ANG_SPD_MAX,
+                data->ang_spdy + ANG_ACCEL * dt * rdiry, ANG_SPD_MAX);
     }
-    if (key_down(GLFW_KEY_A))
+    else
     {
-        transform_local_roty(&ac->transform, drot);
+        data->ang_spdy = approach(data->ang_spdy, 0.0f, ANG_ACCEL * dt);
     }
-    if (key_down(GLFW_KEY_Q))
+    transform_local_roty(&ac->transform, data->ang_spdy * dt);
+
+    if (dir)
     {
-        transform_local_rotz(&ac->transform, -drot);
+        data->spd = fclamp(SPD_MIN, data->spd + ACCEL * dt * dir, SPD_MAX);
     }
-    if (key_down(GLFW_KEY_E))
+    else
     {
-        transform_local_rotz(&ac->transform, drot);
+        data->spd = approach(data->spd, SPD_NORM, ACCEL * dt);
     }
 
-    struct vec3 forward = transform_forward(&ac->transform);
+    vec3_add_eq(&ac->transform.pos, vec3_mul(fwd, data->spd * dt));
 
     data->reload -= dt;
-    if (data->reload <= 0.0f && key_down(GLFW_KEY_K))
+    if (data->reload <= 0.0f && key_down(GLFW_KEY_L))
     {
-        struct vec3 pr_pos = vec3_sub(vec3_add(ac->transform.pos, vec3_mul(forward, 1.2f)),
+        struct vec3 pr_pos = vec3_sub(vec3_add(ac->transform.pos, vec3_mul(fwd, 1.2f)),
                 vec3_mul(transform_up(&ac->transform), 2.0f));
-        struct actor *pr = spawn_projectile(pr_pos, 100.0f);
+        struct actor *pr = spawn_projectile(pr_pos, 100.0f + data->spd);
         pr->transform.rot = ac->transform.rot;
 
         data->reload = 0.25f;
         audio_play("laser7.wav");
     }
 
-    if (key_down(GLFW_KEY_UP))
+    data->energy -= dt;
+    if (data->energy <= 0.0f)
     {
-        vec3_add_eq(&ac->transform.pos, vec3_mul(forward, dpos));
+        // ac->flags |= ACTOR_DEAD;
     }
-    else if (key_down(GLFW_KEY_DOWN))
-    {
-        vec3_sub_eq(&ac->transform.pos, vec3_mul(forward, dpos));
-    }
-
-    // vec3_add_eq(&ac->transform.pos, vec3_mul(forward, dpos));
 
     struct camera *cam = get_camera();
     cam->transform.pos = ac->transform.pos;
     cam->transform.rot = ac->transform.rot;
-
-    // cam->transform.rot = mat4_rotx(M_PI / 2.0f);
-    // cam->transform.pos = vec3_add(ac->transform.pos, vec3_mul(VEC3_UP, 200.0f));
-
-    // printf("Pos: ");
-    // vec3_print(player->transform.pos);
 }
 
 void player_death(struct actor *ac)
 {
     world_end();
+}
+
+void player_energize(struct actor *ac)
+{
+    struct player_data *data = ac->data;
+    data->energy += ENERGY_REFILL;
 }
 
 void player_render(struct actor *ac)
@@ -113,4 +130,20 @@ void player_render(struct actor *ac)
 
     set_texture(get_texture("rusted_metal.jpg"));
     render_mesh(data->mesh, &ac->transform);
+}
+
+void player_render_debug_panel(struct actor *ac)
+{
+    struct player_data *data = ac->data;
+
+    struct vec3 pos = ac->transform.pos;
+    struct vec3 fwd = transform_forward(&ac->transform);
+
+    static char dpbuf[256];
+    snprintf(dpbuf, 256, "FPS: %d\nHP: %f\nEnergy: %f\nPos: (%f, %f, %f)\n"
+            "Forward: (%f, %f, %f)\nSpd: %f\nAng Spd: (%f, %f)\n",
+            timer_fps(), ac->hp, data->energy, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
+            data->spd, data->ang_spdx, data->ang_spdy);
+
+    render_text(dpbuf, 50.0f, 200.0f, 0.4f);
 }

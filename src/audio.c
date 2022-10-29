@@ -18,6 +18,11 @@ bool audio_init()
     return true;
 }
 
+void audio_shutdown()
+{
+    ma_engine_uninit(&engine);
+}
+
 void audio_play(const char *name)
 {
     const char *path = get_asset_path(ASSET_OTHER, name);
@@ -26,4 +31,14 @@ void audio_play(const char *name)
     {
         log_warn("Could not play audio %s", path);
     }
+}
+
+void audio_set_volume(float val)
+{
+    ma_engine_set_volume(&engine, val);
+}
+
+void audio_mute()
+{
+    audio_set_volume(0.0f);
 }

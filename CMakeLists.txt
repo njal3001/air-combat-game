@@ -42,6 +42,12 @@ add_executable(air-combat
     src/menu.c
     src/audio.h
     src/audio.c
+    src/calc.h
+    src/calc.c
+    src/timer.h
+    src/timer.c
+    src/vertex.h
+    src/vertex.c
 )
 
 include_directories(. ${GLEW_INCLUDE_DIRS})

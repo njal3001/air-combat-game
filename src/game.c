@@ -7,6 +7,7 @@
 #include "world.h"
 #include "menu.h"
 #include "audio.h"
+#include "timer.h"
 
 enum gstate
 {
@@ -16,9 +17,6 @@ enum gstate
 
 GLFWwindow *window;
 bool camera_free;
-
-double time_prev;
-size_t ticks;
 
 enum gstate state = GSTATE_MENU;
 
@@ -68,19 +66,21 @@ bool game_init()
 
 void game_run()
 {
+    audio_mute();
+
     world_init();
     audio_play("outthere.wav");
 
-    time_prev = glfwGetTime();
+    timer_init();
 
     while (!glfwWindowShouldClose(window))
     {
-        double time_now = glfwGetTime();
-        float dt = time_now - time_prev;
-        time_prev = time_now;
-
+        timer_preupdate();
         input_update(window);
+
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        float dt = timer_delta();
 
         switch (state)
         {
@@ -121,7 +121,7 @@ void game_run()
         glfwSwapBuffers(window);
         glfwPollEvents();
 
-        ticks++;
+        timer_postupdate();
     }
 
     world_free();
@@ -131,15 +131,11 @@ void game_shutdown()
 {
     assets_free();
     render_shutdown();
+    audio_shutdown();
     glfwTerminate();
 }
 
 GLFWwindow *get_window()
 {
     return window;
-}
-
-size_t get_ticks()
-{
-    return ticks;
 }

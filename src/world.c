@@ -7,8 +7,9 @@
 #include "collide.h"
 #include "game.h"
 #include "audio.h"
+#include "timer.h"
 
-#define MAX_ACTORS 1024
+#define MAX_ACTORS 10000
 
 struct projectile_data
 {
@@ -31,8 +32,6 @@ size_t num_actors;
 bool world_ended;
 size_t tick;
 
-uint32_t score;
-
 static void projectile_update(struct actor *ac, float dt);
 static void projectile_render(struct actor *ac);
 
@@ -41,6 +40,10 @@ static void asteroid_update(struct actor *ac, float dt);
 static void asteroid_render(struct actor *ac);
 static void asteroid_death(struct actor *ac);
 
+static void spawn_energycell(struct vec3 pos);
+static void energycell_update(struct actor *ac, float dt);
+static void energycell_render(struct actor *ac);
+
 void world_init()
 {
     // Spawn tick is 0 for all initial actors
@@ -48,18 +51,27 @@ void world_init()
 
     player = spawn_player(VEC3_ZERO);
 
-    const int range = 50;
-    for (size_t i = 0; i < 2; i++)
+    const int range = 1000;
+    for (size_t i = 0; i < 1000; i++)
     {
         float x = (rand() % (2 * range)) - range;
         float y = (rand() % (2 * range)) - range;
-        float z = 3 * range;
+        float z = rand() % range;
 
         float dx = (2.0f * rand() / (float)RAND_MAX) - 1.0f;
         float dy = (2.0f * rand() / (float)RAND_MAX) - 1.0f;
         float dz = (2.0f * rand() / (float)RAND_MAX) - 1.0f;
 
-        spawn_asteroid(vec3_create(x, y, z), vec3_normalize(vec3_create(dx, dy, dz)), 4);
+        spawn_asteroid(vec3_create(x, y, z),
+                vec3_normalize(vec3_create(dx, dy, dz)), rand() % 5 + 3);
+    }
+
+    for (size_t i = 0; i < 100; i++)
+    {
+        float x = (rand() % (2 * range)) - range;
+        float y = (rand() % (2 * range)) - range;
+        float z = rand() % range;
+        spawn_energycell(vec3_create(x, y, z));
     }
 
     const struct texture *projectile_texture = get_texture("lasers/11.png");
@@ -73,7 +85,7 @@ void world_init()
 
 void world_update(float dt)
 {
-    tick = get_ticks();
+    tick = timer_ticks();
     if (world_ended)
     {
         return;
@@ -138,9 +150,7 @@ void world_render()
         }
     }
 
-    static char scorestr[64];
-    snprintf(scorestr, 64, "Score: %d", score);
-    render_text(scorestr, 10.0f, 1080.0f, 0.5f);
+    player_render_debug_panel(player);
 }
 
 void world_free()
@@ -318,12 +328,40 @@ void asteroid_death(struct actor *ac)
         spawn_asteroid(vec3_add(ac->transform.pos, vec3_mul(new_dir, offset)), new_dir, data->size - 1);
         spawn_asteroid(vec3_sub(ac->transform.pos, vec3_mul(new_dir, -offset)), vec3_neg(new_dir), data->size - 1);
     }
-
-    score += 100 * data->size;
 }
 
 void asteroid_render(struct actor *ac)
 {
     const struct mesh *m = get_mesh("rock.mesh");
+    render_mesh(m, &ac->transform);
+}
+
+void spawn_energycell(struct vec3 pos)
+{
+    struct actor *ac = new_actor();
+
+    ac->transform = transform_create(pos);
+    ac->transform.scale = vec3_create(10.0f, 10.0f, 10.0f);
+    ac->hp = 0.0f;
+    ac->update = energycell_update;
+    ac->render = energycell_render;
+    ac->type = ACTOR_TYPE_ENERGYCELL;
+    ac->cbox.offset = VEC3_ZERO;
+    ac->cbox.bounds = VEC3_ONE;
+}
+
+void energycell_update(struct actor *ac, float dt)
+{
+    struct actor *hit = first_collide(ac, ACTOR_TYPE_PLAYER);
+    if (hit)
+    {
+        player_energize(hit);
+        ac->flags |= ACTOR_DEAD;
+    }
+}
+
+void energycell_render(struct actor *ac)
+{
+    const struct mesh *m = get_mesh("energycell.mesh");
     render_mesh(m, &ac->transform);
 }

@@ -10,4 +10,3 @@ void game_run();
 void game_shutdown();
 
 GLFWwindow *get_window();
-size_t get_ticks();

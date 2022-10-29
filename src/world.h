@@ -5,9 +5,10 @@
 
 enum actor_type
 {
-    ACTOR_TYPE_PLAYER =     1 << 0,
-    ACTOR_TYPE_PROJECTILE = 1 << 1,
-    ACTOR_TYPE_ASTEROID =   1 << 2,
+    ACTOR_TYPE_PLAYER =         1 << 0,
+    ACTOR_TYPE_PROJECTILE =     1 << 1,
+    ACTOR_TYPE_ASTEROID =       1 << 2,
+    ACTOR_TYPE_ENERGYCELL =     1 << 3,
 };
 
 enum
