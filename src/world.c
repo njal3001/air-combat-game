@@ -9,7 +9,7 @@
 #include "audio.h"
 #include "timer.h"
 
-#define MAX_ACTORS 10000
+#define MAX_ACTORS 20000
 
 struct projectile_data
 {
@@ -29,7 +29,6 @@ struct asteroid_data
 struct actor *player;
 struct actor actors[MAX_ACTORS];
 size_t num_actors;
-bool world_ended;
 size_t tick;
 
 static void projectile_update(struct actor *ac, float dt);
@@ -86,10 +85,6 @@ void world_init()
 void world_update(float dt)
 {
     tick = timer_ticks();
-    if (world_ended)
-    {
-        return;
-    }
 
     size_t num_ac_found = 0;
     size_t num_ac_target = num_actors;
@@ -132,17 +127,17 @@ void world_render()
     // draw transparent objects in sorted order
 
     render_skybox();
-    render_scene_begin();
+    main_frame_begin();
 
     size_t num_ac_found = 0;
     for (size_t i = 0; i < MAX_ACTORS; i++)
     {
-        struct actor *pr = actors + i;
-        if (pr->id)
+        struct actor *ac = actors + i;
+        if (ac->id)
         {
-            pr->render(pr);
-            num_ac_found++;
+            ac->render(ac);
 
+            num_ac_found++;
             if (num_ac_found == num_actors)
             {
                 break;
@@ -150,7 +145,40 @@ void world_render()
         }
     }
 
-    player_render_debug_panel(player);
+    main_frame_end();
+
+    // TODO: Add some debug toggle for this
+    /*
+    untextured_frame_begin();
+
+    num_ac_found = 0;
+    for (size_t i = 0; i < MAX_ACTORS; i++)
+    {
+        struct actor *ac = actors + i;
+        if (ac->id)
+        {
+            if (ac->type != ACTOR_TYPE_PLAYER)
+            {
+                render_collider_outline(ac);
+            }
+
+            num_ac_found++;
+            if (num_ac_found == num_actors)
+            {
+                break;
+            }
+        }
+    }
+
+    untextured_frame_end();
+    */
+
+    if (player)
+    {
+        text_frame_begin();
+        player_render_debug_panel(player);
+        text_frame_end();
+    }
 }
 
 void world_free()
@@ -160,8 +188,8 @@ void world_free()
 
 void world_end()
 {
+    player = NULL;
     printf("GAME OVER!\n");
-    world_ended = true;
 }
 
 struct actor *new_actor()
@@ -270,7 +298,7 @@ void projectile_render(struct actor *ac)
     // FIXME: Hack to get correct orientation, should change texture coordinates
     // or image orientation
     transform_local_roty(&ac->transform, -M_PI / 2.0f);
-    render_mesh(&projectile_mesh, &ac->transform);
+    push_mesh(&projectile_mesh, &ac->transform);
     transform_local_roty(&ac->transform, M_PI / 2.0f);
 }
 
@@ -287,7 +315,7 @@ void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size)
     ac->death = asteroid_death;
     ac->type = ACTOR_TYPE_ASTEROID;
     ac->cbox.offset = VEC3_ZERO;
-    ac->cbox.bounds = VEC3_ONE;
+    ac->cbox.bounds = vec3_create(0.7f, 0.7f, 0.7f);
 
     struct asteroid_data *data = malloc(sizeof(struct asteroid_data));
     data->dir = dir;
@@ -333,7 +361,7 @@ void asteroid_death(struct actor *ac)
 void asteroid_render(struct actor *ac)
 {
     const struct mesh *m = get_mesh("rock.mesh");
-    render_mesh(m, &ac->transform);
+    push_mesh(m, &ac->transform);
 }
 
 void spawn_energycell(struct vec3 pos)
@@ -341,13 +369,13 @@ void spawn_energycell(struct vec3 pos)
     struct actor *ac = new_actor();
 
     ac->transform = transform_create(pos);
-    ac->transform.scale = vec3_create(10.0f, 10.0f, 10.0f);
+    ac->transform.scale = vec3_create(5.0f, 5.0f, 5.0f);
     ac->hp = 0.0f;
     ac->update = energycell_update;
     ac->render = energycell_render;
     ac->type = ACTOR_TYPE_ENERGYCELL;
-    ac->cbox.offset = VEC3_ZERO;
-    ac->cbox.bounds = VEC3_ONE;
+    ac->cbox.offset = vec3_create(0.0f, 0.0f, 2.5f);
+    ac->cbox.bounds = vec3_create(1.0f, 1.0f, 2.4f);
 }
 
 void energycell_update(struct actor *ac, float dt)
@@ -363,5 +391,5 @@ void energycell_update(struct actor *ac, float dt)
 void energycell_render(struct actor *ac)
 {
     const struct mesh *m = get_mesh("energycell.mesh");
-    render_mesh(m, &ac->transform);
+    push_mesh(m, &ac->transform);
 }

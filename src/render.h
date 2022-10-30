@@ -6,6 +6,7 @@
 #include "spatial.h"
 #include "transform.h"
 #include "camera.h"
+#include "vertex.h"
 
 struct color
 {
@@ -15,7 +16,7 @@ struct color
     uint8_t a;
 };
 
-struct vert_main
+struct vert_mesh
 {
     struct vec3 pos;
     struct vec3 norm;
@@ -57,7 +58,7 @@ struct material
 
 struct mesh
 {
-    struct vert_main *vertices;
+    struct vert_mesh *vertices;
     GLushort *indices;
     size_t vertex_count;
     size_t index_count;
@@ -103,17 +104,38 @@ struct font
     struct texture bitmap;
 };
 
+struct render_frame
+{
+    void *vbo_map;
+    GLushort *ebo_map;
+    size_t vbo_count;
+    size_t ebo_count;
+};
+
 bool render_init(GLFWwindow *window);
 void render_shutdown();
 
 void set_texture(const struct texture *texture);
 
-void render_scene_begin();
 void render_skybox();
+void main_frame_begin();
+void main_frame_end();
+void push_mesh(const struct mesh *mesh, const struct transform *transform);
 
-void render_mesh(const struct mesh *mesh, const struct transform *transform);
-void render_text(const char *str, float x, float y, float size);
-void render_line(struct vec3 a, struct vec3 b, float thickness, struct color col);
+void text_frame_begin();
+void text_frame_end();
+void push_text(const char *str, float x, float y, float size);
+
+void untextured_frame_begin();
+void untextured_frame_end();
+void push_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d, struct color col);
+void push_volume(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct vec3 p3,
+        struct vec3 p4, struct vec3 p5, struct vec3 p6, struct vec3 p7, struct color col);
+void push_cube(struct vec3 center, struct vec3 size, struct color col);
+void push_line(struct vec3 a, struct vec3 b, float thickness, struct color col);
+void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct vec3 p3,
+        struct vec3 p4, struct vec3 p5, struct vec3 p6, struct vec3 p7, float thickness,
+        struct color col);
 
 struct camera *get_camera();
 struct dir_light *get_dir_light();

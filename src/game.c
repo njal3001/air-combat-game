@@ -72,6 +72,7 @@ void game_run()
     audio_play("outthere.wav");
 
     timer_init();
+    camera_free = true;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -116,7 +117,6 @@ void game_run()
                 break;
             }
         }
-
 
         glfwSwapBuffers(window);
         glfwPollEvents();

@@ -129,7 +129,7 @@ void player_render(struct actor *ac)
     struct player_data *data = ac->data;
 
     set_texture(get_texture("rusted_metal.jpg"));
-    render_mesh(data->mesh, &ac->transform);
+    push_mesh(data->mesh, &ac->transform);
 }
 
 void player_render_debug_panel(struct actor *ac)
@@ -145,5 +145,5 @@ void player_render_debug_panel(struct actor *ac)
             timer_fps(), ac->hp, data->energy, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
             data->spd, data->ang_spdx, data->ang_spdy);
 
-    render_text(dpbuf, 50.0f, 200.0f, 0.4f);
+    push_text(dpbuf, 50.0f, 200.0f, 0.4f);
 }

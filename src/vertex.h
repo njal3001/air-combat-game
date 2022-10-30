@@ -29,6 +29,7 @@ enum vert_type
     VTYPE_FLOAT2,
     VTYPE_FLOAT3,
     VTYPE_FLOAT4,
+    VTYPE_UBYTE4,
 };
 
 struct vert_attrib

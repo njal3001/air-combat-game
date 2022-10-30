@@ -1,6 +1,7 @@
 #include "collide.h"
 #include <float.h>
 #include <math.h>
+#include "render.h"
 
 struct cbox_info
 {
@@ -30,14 +31,14 @@ void get_cbox_info(struct cbox_info *info, const struct actor *ac)
     struct vec3 dy = vec3_mul(info->axis_y, ac->transform.scale.y * ac->cbox.bounds.y);
     struct vec3 dz = vec3_mul(info->axis_z, ac->transform.scale.z * ac->cbox.bounds.z);
 
-    info->points[0] = vec3_sub(vec3_sub(vec3_sub(p, dx), dy), dz);
-    info->points[1] = vec3_sub(vec3_sub(vec3_add(p, dx), dy), dz);
-    info->points[2] = vec3_sub(vec3_add(vec3_sub(p, dx), dy), dz);
-    info->points[3] = vec3_sub(vec3_add(vec3_add(p, dx), dy), dz);
-    info->points[4] = vec3_add(vec3_sub(vec3_sub(p, dx), dy), dz);
-    info->points[5] = vec3_add(vec3_sub(vec3_add(p, dx), dy), dz);
-    info->points[6] = vec3_add(vec3_add(vec3_sub(p, dx), dy), dz);
-    info->points[7] = vec3_add(vec3_add(vec3_add(p, dx), dy), dz);
+    info->points[0] = vec3_add(vec3_add(vec3_sub(p, dx), dy), dz);
+    info->points[1] = vec3_add(vec3_sub(vec3_sub(p, dx), dy), dz);
+    info->points[2] = vec3_add(vec3_sub(vec3_add(p, dx), dy), dz);
+    info->points[3] = vec3_add(vec3_add(vec3_add(p, dx), dy), dz);
+    info->points[4] = vec3_sub(vec3_add(vec3_sub(p, dx), dy), dz);
+    info->points[5] = vec3_sub(vec3_sub(vec3_sub(p, dx), dy), dz);
+    info->points[6] = vec3_sub(vec3_sub(vec3_add(p, dx), dy), dz);
+    info->points[7] = vec3_sub(vec3_add(vec3_add(p, dx), dy), dz);
 }
 
 struct cbox_prj get_cbox_projection(const struct cbox_info *info, struct vec3 axis)
@@ -95,4 +96,13 @@ bool check_collide(const struct actor *a, const struct actor *b)
     }
 
     return true;
+}
+
+void render_collider_outline(const struct actor *ac)
+{
+    struct cbox_info info;
+    get_cbox_info(&info, ac);
+
+    push_volume_outline(info.points[0], info.points[1], info.points[2], info.points[3],
+        info.points[4], info.points[5], info.points[6], info.points[7], 1.0f, COLOR_RED);
 }

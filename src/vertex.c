@@ -25,6 +25,9 @@ void vert_array_init(struct vert_array *varray, struct vert_array_data *data,
             case VTYPE_FLOAT4:
                 stride += 4 * sizeof(GLfloat);
                 break;
+            case VTYPE_UBYTE4:
+                stride += 4 * sizeof(GLubyte);
+                break;
         }
     }
 
@@ -78,6 +81,11 @@ void vert_array_init(struct vert_array *varray, struct vert_array_data *data,
                 count = 4;
                 size = 4 * sizeof(GLfloat);
                 type = GL_FLOAT;
+                break;
+            case VTYPE_UBYTE4:
+                count = 4;
+                size = 4 * sizeof(GLubyte);
+                type = GL_UNSIGNED_BYTE;
                 break;
         }
 
