@@ -72,7 +72,6 @@ void game_run()
     audio_play("outthere.wav");
 
     timer_init();
-    camera_free = true;
 
     while (!glfwWindowShouldClose(window))
     {
@@ -102,6 +101,10 @@ void game_run()
                 if (key_pressed(GLFW_KEY_ESCAPE))
                 {
                     camera_free = !camera_free;
+                }
+                else if (key_pressed(GLFW_KEY_F10))
+                {
+                    toggle_collider_rendering();
                 }
 
                 if (camera_free)

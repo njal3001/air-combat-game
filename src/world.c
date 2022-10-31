@@ -8,8 +8,16 @@
 #include "game.h"
 #include "audio.h"
 #include "timer.h"
+#include "calc.h"
 
 #define MAX_ACTORS 20000
+
+#define ITEM_MAX_DIST 2500.0f
+#define ITEM_SPAWN_MIN_DIST 1000.0f
+#define ITEM_SPAWN_MAX_DIST 2000.0f
+
+#define ASTEROID_TARGET_COUNT 3500
+#define ENERGYCELL_TARGET_COUNT 100
 
 struct projectile_data
 {
@@ -30,6 +38,12 @@ struct actor *player;
 struct actor actors[MAX_ACTORS];
 size_t num_actors;
 size_t tick;
+bool show_colliders;
+
+size_t num_asteroids;
+size_t num_energycells;
+
+static void world_populate();
 
 static void projectile_update(struct actor *ac, float dt);
 static void projectile_render(struct actor *ac);
@@ -37,11 +51,12 @@ static void projectile_render(struct actor *ac);
 static void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size);
 static void asteroid_update(struct actor *ac, float dt);
 static void asteroid_render(struct actor *ac);
-static void asteroid_death(struct actor *ac);
 
 static void spawn_energycell(struct vec3 pos);
 static void energycell_update(struct actor *ac, float dt);
 static void energycell_render(struct actor *ac);
+
+static bool check_player_out_of_range(const struct actor *ac, float max_dist);
 
 void world_init()
 {
@@ -50,29 +65,6 @@ void world_init()
 
     player = spawn_player(VEC3_ZERO);
 
-    const int range = 1000;
-    for (size_t i = 0; i < 1000; i++)
-    {
-        float x = (rand() % (2 * range)) - range;
-        float y = (rand() % (2 * range)) - range;
-        float z = rand() % range;
-
-        float dx = (2.0f * rand() / (float)RAND_MAX) - 1.0f;
-        float dy = (2.0f * rand() / (float)RAND_MAX) - 1.0f;
-        float dz = (2.0f * rand() / (float)RAND_MAX) - 1.0f;
-
-        spawn_asteroid(vec3_create(x, y, z),
-                vec3_normalize(vec3_create(dx, dy, dz)), rand() % 5 + 3);
-    }
-
-    for (size_t i = 0; i < 100; i++)
-    {
-        float x = (rand() % (2 * range)) - range;
-        float y = (rand() % (2 * range)) - range;
-        float z = rand() % range;
-        spawn_energycell(vec3_create(x, y, z));
-    }
-
     const struct texture *projectile_texture = get_texture("lasers/11.png");
     projectile_mesh = create_quad_mesh();
     projectile_mesh.material.ambient = vec3_create(1.0f, 1.0f, 1.0f);
@@ -80,6 +72,31 @@ void world_init()
     projectile_mesh.material.specular = VEC3_ZERO;
     projectile_mesh.material.shininess = 1.0f;
     projectile_mesh.material.texture = projectile_texture;
+
+    world_populate();
+}
+
+void world_populate()
+{
+    struct vec3 ppos = player->transform.pos;
+
+    while (num_asteroids < ASTEROID_TARGET_COUNT)
+    {
+        struct vec3 pos = vec3_add(ppos, vec3_randrange(ITEM_SPAWN_MIN_DIST, ITEM_SPAWN_MAX_DIST));
+        struct vec3 dir = vec3_rand();
+        size_t size = randrange(3, 5);
+        spawn_asteroid(pos, dir, size);
+
+        num_asteroids++;
+    }
+
+    while (num_energycells < ENERGYCELL_TARGET_COUNT)
+    {
+        struct vec3 pos = vec3_add(ppos, vec3_randrange(ITEM_SPAWN_MIN_DIST, ITEM_SPAWN_MAX_DIST));
+        spawn_energycell(pos);
+
+        num_energycells++;
+    }
 }
 
 void world_update(float dt)
@@ -88,14 +105,19 @@ void world_update(float dt)
 
     size_t num_ac_found = 0;
     size_t num_ac_target = num_actors;
-    size_t i = 0;
 
+    if (player)
+    {
+        world_populate();
+    }
+
+    size_t i = 0;
     while (num_ac_found != num_ac_target)
     {
         struct actor *ac = actors + i;
 
         // Only update actor if it was not spawned this tick
-        if (ac->id && (!tick || ac->spawn_tick != tick))
+        if (ac->id && (!ac->spawn_tick || ac->spawn_tick != tick))
         {
             if (ac->flags & ACTOR_DEAD)
             {
@@ -104,6 +126,16 @@ void world_update(float dt)
                 {
                     ac->death(ac);
                 }
+
+                if (ac->type == ACTOR_TYPE_ASTEROID)
+                {
+                    num_asteroids--;
+                }
+                else if (ac->type == ACTOR_TYPE_ENERGYCELL)
+                {
+                    num_energycells--;
+                }
+
                 free(ac->data);
                 ac->id = 0;
                 num_actors--;
@@ -127,7 +159,7 @@ void world_render()
     // draw transparent objects in sorted order
 
     render_skybox();
-    main_frame_begin();
+    mesh_frame_begin();
 
     size_t num_ac_found = 0;
     for (size_t i = 0; i < MAX_ACTORS; i++)
@@ -145,33 +177,33 @@ void world_render()
         }
     }
 
-    main_frame_end();
+    mesh_frame_end();
 
-    // TODO: Add some debug toggle for this
-    /*
-    untextured_frame_begin();
-
-    num_ac_found = 0;
-    for (size_t i = 0; i < MAX_ACTORS; i++)
+    if (show_colliders)
     {
-        struct actor *ac = actors + i;
-        if (ac->id)
-        {
-            if (ac->type != ACTOR_TYPE_PLAYER)
-            {
-                render_collider_outline(ac);
-            }
+        untextured_frame_begin();
 
-            num_ac_found++;
-            if (num_ac_found == num_actors)
+        num_ac_found = 0;
+        for (size_t i = 0; i < MAX_ACTORS; i++)
+        {
+            struct actor *ac = actors + i;
+            if (ac->id)
             {
-                break;
+                if (ac->type != ACTOR_TYPE_PLAYER)
+                {
+                    render_collider_outline(ac);
+                }
+
+                num_ac_found++;
+                if (num_ac_found == num_actors)
+                {
+                    break;
+                }
             }
         }
-    }
 
-    untextured_frame_end();
-    */
+        untextured_frame_end();
+    }
 
     if (player)
     {
@@ -192,6 +224,11 @@ void world_end()
     printf("GAME OVER!\n");
 }
 
+void toggle_collider_rendering()
+{
+   show_colliders = !show_colliders;
+}
+
 struct actor *new_actor()
 {
     assert(num_actors < MAX_ACTORS);
@@ -207,6 +244,7 @@ struct actor *new_actor()
             ac->flags = 0;
             ac->spawn_tick = tick;
             ac->death = NULL;
+            ac->data = NULL;
             return ac;
         }
 
@@ -312,7 +350,6 @@ void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size)
     ac->hp = size * 15.0f;
     ac->update = asteroid_update;
     ac->render = asteroid_render;
-    ac->death = asteroid_death;
     ac->type = ACTOR_TYPE_ASTEROID;
     ac->cbox.offset = VEC3_ZERO;
     ac->cbox.bounds = vec3_create(0.7f, 0.7f, 0.7f);
@@ -320,41 +357,30 @@ void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size)
     struct asteroid_data *data = malloc(sizeof(struct asteroid_data));
     data->dir = dir;
     data->size = size;
-    data->no_collide = 1.0f;
     ac->data = data;
 }
 
 void asteroid_update(struct actor *ac, float dt)
 {
-    struct asteroid_data *data = ac->data;
-    data->no_collide -= dt;
-
-    // NOTE: Could check projectile here also
-    // TODO: Asteroid vs asteroid collision
-    // struct actor *hit = first_collide(ac, ACTOR_TYPE_PLAYER | ACTOR_TYPE_ASTEROID);
-    struct actor *hit = first_collide(ac, ACTOR_TYPE_PLAYER);
-    if (hit && (hit->type == ACTOR_TYPE_PLAYER || data->no_collide <= 0.0f))
+    if (check_player_out_of_range(ac, ITEM_MAX_DIST))
     {
-        actor_hurt(hit, 100.0f);
         ac->flags |= ACTOR_DEAD;
     }
     else
     {
-        float drot = dt * 2.0f * 1.0f / (float)data->size;
-        vec3_add_eq(&ac->transform.pos, vec3_mul(data->dir, 10.0f * dt));
-        transform_local_roty(&ac->transform, drot);
-    }
-}
-
-void asteroid_death(struct actor *ac)
-{
-    struct asteroid_data *data = ac->data;
-    if (data->size > 1)
-    {
-        struct vec3 new_dir = vec3_cross(data->dir, VEC3_UP);
-        float offset = data->size * 5.0f;
-        spawn_asteroid(vec3_add(ac->transform.pos, vec3_mul(new_dir, offset)), new_dir, data->size - 1);
-        spawn_asteroid(vec3_sub(ac->transform.pos, vec3_mul(new_dir, -offset)), vec3_neg(new_dir), data->size - 1);
+        struct asteroid_data *data = ac->data;
+        struct actor *hit = first_collide(ac, ACTOR_TYPE_PLAYER);
+        if (hit)
+        {
+            actor_hurt(hit, 100.0f);
+            ac->flags |= ACTOR_DEAD;
+        }
+        else
+        {
+            float drot = dt * 2.0f * 1.0f / (float)data->size;
+            vec3_add_eq(&ac->transform.pos, vec3_mul(data->dir, 10.0f * dt));
+            transform_local_roty(&ac->transform, drot);
+        }
     }
 }
 
@@ -380,11 +406,18 @@ void spawn_energycell(struct vec3 pos)
 
 void energycell_update(struct actor *ac, float dt)
 {
-    struct actor *hit = first_collide(ac, ACTOR_TYPE_PLAYER);
-    if (hit)
+    if (check_player_out_of_range(ac, ITEM_MAX_DIST))
     {
-        player_energize(hit);
         ac->flags |= ACTOR_DEAD;
+    }
+    else
+    {
+        struct actor *hit = first_collide(ac, ACTOR_TYPE_PLAYER);
+        if (hit)
+        {
+            player_energize(hit);
+            ac->flags |= ACTOR_DEAD;
+        }
     }
 }
 
@@ -392,4 +425,19 @@ void energycell_render(struct actor *ac)
 {
     const struct mesh *m = get_mesh("energycell.mesh");
     push_mesh(m, &ac->transform);
+}
+
+bool check_player_out_of_range(const struct actor *ac, float max_dist)
+{
+    if (player)
+    {
+        struct vec3 pdiff = vec3_sub(player->transform.pos, ac->transform.pos);
+        float dist2 = vec3_length2(pdiff);
+        if (dist2 >= max_dist * max_dist)
+        {
+            return true;
+        }
+    }
+
+    return false;
 }

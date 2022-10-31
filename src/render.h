@@ -118,8 +118,8 @@ void render_shutdown();
 void set_texture(const struct texture *texture);
 
 void render_skybox();
-void main_frame_begin();
-void main_frame_end();
+void mesh_frame_begin();
+void mesh_frame_end();
 void push_mesh(const struct mesh *mesh, const struct transform *transform);
 
 void text_frame_begin();

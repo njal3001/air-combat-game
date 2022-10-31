@@ -1,5 +1,6 @@
 #include "calc.h"
 #include <math.h>
+#include <stdlib.h>
 
 float fclamp(float min, float val, float max)
 {
@@ -14,4 +15,19 @@ float approach(float val, float target, float amount)
     }
 
     return fmin(val + amount, target);
+}
+
+int randrange(int min, int max)
+{
+    return rand() % (max - min) + min;
+}
+
+float frand()
+{
+    return rand() / (float)RAND_MAX;
+}
+
+float frandrange(float min, float max)
+{
+    return frand() * (max - min) + min;
 }

@@ -1,7 +1,8 @@
 #include "spatial.h"
-#include "string.h"
+#include <string.h>
 #include <math.h>
 #include <stdio.h>
+#include "calc.h"
 
 struct vec3 vec3_create(float x, float y, float z)
 {
@@ -121,6 +122,25 @@ struct vec3 vec3_normalize(struct vec3 v)
     if (length == 0) return v;
 
     return vec3_div(v, length);
+}
+
+// FIXME: Not uniform?
+// Also should prevent zero vectors
+struct vec3 vec3_rand()
+{
+    float x = frandrange(-1.0f, 1.0f);
+    float y = frandrange(-1.0f, 1.0f);
+    float z = frandrange(-1.0f, 1.0f);
+
+    return vec3_normalize(vec3_create(x, y, z));
+}
+
+struct vec3 vec3_randrange(float min, float max)
+{
+    struct vec3 dir = vec3_rand();
+    float len = frandrange(min, max);
+
+    return vec3_mul(dir, len);
 }
 
 struct mat4 mat4_create(

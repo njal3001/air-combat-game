@@ -335,7 +335,7 @@ void render_skybox()
     glDepthFunc(GL_LESS);
 }
 
-void main_frame_begin()
+void mesh_frame_begin()
 {
     view = camera_view(&camera);
 
@@ -365,7 +365,7 @@ void main_frame_begin()
     shader_set_float(&main_shader, "u_point_light.quadratic", point_light.quadratic);
 }
 
-void main_frame_end()
+void mesh_frame_end()
 {
 }
 

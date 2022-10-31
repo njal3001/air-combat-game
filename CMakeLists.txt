@@ -48,6 +48,7 @@ add_executable(air-combat
     src/timer.c
     src/vertex.h
     src/vertex.c
+    src/actor.h
 )
 
 include_directories(. ${GLEW_INCLUDE_DIRS})
