@@ -45,7 +45,7 @@ void vert_array_init(struct vert_array *varray, struct vert_array_data *data,
     {
         glGenBuffers(1, &varray->ebo);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, varray->ebo);
-        glBufferData(GL_ELEMENT_ARRAY_BUFFER, data->ebo_size * sizeof(GLushort),
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, data->ebo_size * sizeof(GLuint),
                         data->ebo_data, usage);
     }
 

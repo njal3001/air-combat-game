@@ -117,6 +117,14 @@ void game_run()
                 }
 
                 world_render();
+
+                static char dinfo[256];
+                snprintf(dinfo, 256, "Frame time: %fms\nFPS: %d\n",
+                        dt * 100.0f, timer_fps());
+
+                text_frame_begin();
+                push_text(dinfo, 15.0f, 1060.0f, 0.4f);
+                text_frame_end();
                 break;
             }
         }

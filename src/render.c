@@ -17,8 +17,8 @@
 #endif
 
 // TODO: Should have separate maximums for each vao
-#define MAX_VERTICES 1048576
-#define MAX_INDICES 2097152
+#define MAX_VERTICES 30000000
+#define MAX_INDICES 50000000
 
 #define FOV (M_PI / 2.5f)
 #define ASPECT_RATIO (1920.0f / 1080.0f)
@@ -81,16 +81,13 @@ struct shader text_shader;
 struct shader untextured_shader;
 
 struct mat4 projection;
-struct mat4 view;
 struct camera camera;
-
-struct dir_light dir_light;
-struct point_light point_light;
 
 struct cubemap skybox_map;
 struct font font;
 
 struct render_frame current_frame;
+const struct mesh *current_mesh;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
@@ -134,18 +131,13 @@ bool render_init(GLFWwindow *window)
         .type = VTYPE_FLOAT3,
         .normalized = false,
     };
-    struct vert_attrib norm_attrib =
-    {
-        .type = VTYPE_FLOAT3,
-        .normalized = false,
-    };
     struct vert_attrib uv_attrib =
     {
         .type = VTYPE_FLOAT2,
         .normalized = false,
     };
 
-    vert_array_init(&main_vao, &main_data, VARRAY_DYNAMIC, 3, pos_attrib, norm_attrib, uv_attrib);
+    vert_array_init(&main_vao, &main_data, VARRAY_DYNAMIC, 2, pos_attrib, uv_attrib);
 
     // Skybox vertex array
     struct vert_array_data skybox_data;
@@ -185,26 +177,12 @@ bool render_init(GLFWwindow *window)
     };
 
     vert_array_init(&untextured_vao, &untextured_data, VARRAY_DYNAMIC, 2,
-            pos_attrib, color_attrib);
+        pos_attrib, color_attrib);
 
     // Create main shader
     load_shader(&main_shader, "main.vert", "main.frag");
     glUseProgram(main_shader.id);
     shader_set_int(&main_shader, "u_sampler", 0);
-
-    // Default light values
-    dir_light.dir = vec3_create(-0.2f, -1.0f, -0.2f);
-    dir_light.ambient = vec3_create(0.2f, 0.2f, 0.2f);
-    dir_light.diffuse = vec3_create(0.5f, 0.5f, 0.5f);
-    dir_light.specular = vec3_create(1.0f, 1.0f, 1.0f);
-
-    point_light.pos = VEC3_ZERO;
-    point_light.ambient = vec3_create(0.2f, 0.2f, 0.2f);
-    point_light.diffuse = vec3_create(0.5f, 0.5f, 0.5f);
-    point_light.specular = vec3_create(1.0f, 1.0f, 1.0f);
-    point_light.constant = 0.00001f;
-    point_light.linear = 0.000009f;
-    point_light.quadratic = 0.0000032f;
 
     // Create skybox shader
     load_shader(&skybox_shader, "skybox.vert", "skybox.frag");
@@ -283,20 +261,25 @@ void render_frame_begin(const struct vert_array *vao, const struct texture *text
 
 void render_frame_end()
 {
-    assert(current_frame.vbo_count);
     assert(current_frame.vbo_map);
-    assert(!current_frame.ebo_map || current_frame.ebo_count);
 
     glUnmapBuffer(GL_ARRAY_BUFFER);
-
     if (current_frame.ebo_map)
     {
         glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-        glDrawElements(GL_TRIANGLES, current_frame.ebo_count, GL_UNSIGNED_SHORT, (void*)NULL);
     }
-    else
+
+    if (current_frame.vbo_count)
     {
-        glDrawArrays(GL_TRIANGLES, 0, current_frame.vbo_count);
+        if (current_frame.ebo_map)
+        {
+            // glDrawArrays(GL_TRIANGLES, 0, current_frame.vbo_count);
+            glDrawElements(GL_TRIANGLES, current_frame.ebo_count, GL_UNSIGNED_INT, (void*)NULL);
+        }
+        else
+        {
+            glDrawArrays(GL_TRIANGLES, 0, current_frame.vbo_count);
+        }
     }
 
     current_frame.vbo_count = 0;
@@ -335,68 +318,49 @@ void render_skybox()
     glDepthFunc(GL_LESS);
 }
 
-void mesh_frame_begin()
+void mesh_frame_begin(const struct mesh *mesh)
 {
-    view = camera_view(&camera);
+    render_frame_begin(&main_vao, mesh->texture, &main_shader);
+    current_mesh = mesh;
 
-    glBindVertexArray(main_vao.id);
-    glBindBuffer(GL_ARRAY_BUFFER, main_vao.vbo);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, main_vao.ebo);
-    glUseProgram(main_shader.id);
-
-    // View and projection
+    struct mat4 view = camera_view(&camera);
     shader_set_mat4(&main_shader, "u_view", &view);
     shader_set_mat4(&main_shader, "u_projection", &projection);
-    shader_set_vec3(&main_shader, "u_view_pos", camera.transform.pos);
-
-    // Direction light
-    shader_set_vec3(&main_shader, "u_dir_light.dir", dir_light.dir);
-    shader_set_vec3(&main_shader, "u_dir_light.ambient", dir_light.ambient);
-    shader_set_vec3(&main_shader, "u_dir_light.diffuse", dir_light.diffuse);
-    shader_set_vec3(&main_shader, "u_dir_light.specular", dir_light.specular);
-
-    // Point light
-    shader_set_vec3(&main_shader, "u_point_light.pos", point_light.pos);
-    shader_set_vec3(&main_shader, "u_point_light.ambient", point_light.ambient);
-    shader_set_vec3(&main_shader, "u_point_light.diffuse", point_light.diffuse);
-    shader_set_vec3(&main_shader, "u_point_light.specular", point_light.specular);
-    shader_set_float(&main_shader, "u_point_light.constant", point_light.constant);
-    shader_set_float(&main_shader, "u_point_light.linear", point_light.linear);
-    shader_set_float(&main_shader, "u_point_light.quadratic", point_light.quadratic);
 }
 
 void mesh_frame_end()
 {
+    render_frame_end();
+    current_mesh = NULL;
 }
 
-void push_mesh(const struct mesh *mesh, const struct transform *transform)
+void push_mesh(const struct transform *transform)
 {
-    if (mesh->material.texture)
+    assert(current_mesh);
+    assert(current_frame.vbo_count + current_mesh->vertex_count <= MAX_VERTICES);
+    assert(current_frame.ebo_count + current_mesh->index_count <= MAX_INDICES);
+
+    struct mat4 model = transform_matrix(transform);
+
+    struct vert_textured *vmap = current_frame.vbo_map;
+    for (size_t i = 0; i < current_mesh->vertex_count; i++)
     {
-        set_texture(mesh->material.texture);
+        struct vert_textured *vert = current_mesh->vertices + i;
+        vmap->pos = mat4_vmul(model, vert->pos);
+        vmap->uvx = vert->uvx;
+        vmap->uvy = vert->uvy;
+        vmap++;
     }
 
-    struct mat4 model_matrix = mat4_mul(mat4_mul(mat4_translate(transform->pos),
-                 transform->rot), mat4_scale(transform->scale));
-    // NOTE: Need to use scale matrix if non uniform scaling
-    struct mat4 normal_matrix = transform->rot;
+    for (size_t i = 0; i < current_mesh->index_count; i++)
+    {
+        current_frame.ebo_map[i] = current_frame.vbo_count + current_mesh->indices[i];
+    }
 
-    // Matrices and view position
-    shader_set_mat4(&main_shader, "u_model", &model_matrix);
-    shader_set_mat4(&main_shader, "u_normal", &normal_matrix);
-
-    // Material uniforms
-    shader_set_vec3(&main_shader, "u_material.ambient", mesh->material.ambient);
-    shader_set_vec3(&main_shader, "u_material.diffuse", mesh->material.diffuse);
-    shader_set_vec3(&main_shader, "u_material.specular", mesh->material.specular);
-    shader_set_float(&main_shader, "u_material.shininess", mesh->material.shininess);
-
-
-    glBufferSubData(GL_ARRAY_BUFFER, 0, mesh->vertex_count * sizeof(struct vert_mesh),
-            mesh->vertices);
-    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, mesh->index_count * sizeof(GLushort),
-            mesh->indices);
-    glDrawElements(GL_TRIANGLES, mesh->index_count, GL_UNSIGNED_SHORT, 0);
+    current_frame.vbo_count += current_mesh->vertex_count;
+    current_frame.ebo_count += current_mesh->index_count;
+    current_frame.vbo_map = vmap;
+    current_frame.ebo_map += current_mesh->index_count;
 }
 
 void text_frame_begin()
@@ -489,6 +453,8 @@ void push_text(const char *str, float x, float y, float size)
 void untextured_frame_begin()
 {
     render_frame_begin(&untextured_vao, NULL, &untextured_shader);
+
+    struct mat4 view = camera_view(&camera);
     shader_set_mat4(&untextured_shader, "u_view", &view);
     shader_set_mat4(&untextured_shader, "u_projection", &projection);
 }
@@ -625,16 +591,6 @@ void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct 
 struct camera *get_camera()
 {
     return &camera;
-}
-
-struct dir_light *get_dir_light()
-{
-    return &dir_light;
-}
-
-struct point_light *get_point_light()
-{
-    return &point_light;
 }
 
 struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)

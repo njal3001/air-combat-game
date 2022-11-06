@@ -11,9 +11,9 @@
 #include "calc.h"
 #include "timer.h"
 
-#define SPD_NORM 500.0f
-#define SPD_MIN 400.0f
-#define SPD_MAX 600.0f
+#define SPD_NORM 800.0f
+#define SPD_MIN 600.0f
+#define SPD_MAX 1000.0f
 #define ACCEL 100.0f
 #define ANG_ACCEL 3.0f
 #define ANG_SPD_MAX 1.0f
@@ -21,15 +21,14 @@
 #define ENERGY_REFILL 3.0f
 
 static void player_update(struct actor *ac, float dt);
-static void player_render(struct actor *ac);
 static void player_death(struct actor *ac);
 
 struct actor *spawn_player(struct vec3 pos)
 {
     struct actor *ac = new_actor();
     ac->transform = transform_create(pos);
+    ac->transform.scale = vec3_create(2.0f, 2.0f, 2.0f);
     ac->update = player_update;
-    ac->render = player_render;
     ac->death = player_death;
     ac->type = ACTOR_TYPE_PLAYER;
     ac->hp = 150.0f;
@@ -42,7 +41,6 @@ struct actor *spawn_player(struct vec3 pos)
     data->ang_spdy = 0.0f;
     data->energy = ENERGY_MAX;
     data->reload = 0.0f;
-    data->mesh = get_mesh("cube.mesh");
     ac->data = data;
 
     return ac;
@@ -124,26 +122,18 @@ void player_energize(struct actor *ac)
     data->energy += ENERGY_REFILL;
 }
 
-void player_render(struct actor *ac)
-{
-    struct player_data *data = ac->data;
-
-    set_texture(get_texture("rusted_metal.jpg"));
-    push_mesh(data->mesh, &ac->transform);
-}
-
-void player_render_debug_panel(struct actor *ac)
+void player_render_state_info(struct actor *ac)
 {
     struct player_data *data = ac->data;
 
     struct vec3 pos = ac->transform.pos;
     struct vec3 fwd = transform_forward(&ac->transform);
 
-    static char dpbuf[256];
-    snprintf(dpbuf, 256, "FPS: %d\nHP: %f\nEnergy: %f\nPos: (%f, %f, %f)\n"
+    static char pinfo[256];
+    snprintf(pinfo, 256, "HP: %f\nEnergy: %f\nPos: (%f, %f, %f)\n"
             "Forward: (%f, %f, %f)\nSpd: %f\nAng Spd: (%f, %f)\n",
-            timer_fps(), ac->hp, data->energy, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
+            ac->hp, data->energy, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
             data->spd, data->ang_spdx, data->ang_spdy);
 
-    push_text(dpbuf, 50.0f, 200.0f, 0.4f);
+    push_text(pinfo, 15.0f, 160.0f, 0.4f);
 }

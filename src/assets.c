@@ -1,5 +1,7 @@
 #include "assets.h"
 #include <stdbool.h>
+#include <stdio.h>
+#include "string.h"
 #include "platform.h"
 #include "hashmap.h"
 #include "log.h"
@@ -151,7 +153,7 @@ const struct mesh *get_mesh(const char *name)
     struct mesh *mesh = malloc(sizeof(struct mesh));
     mesh->indices = NULL;
     mesh->vertices = NULL;
-    mesh->material.texture = NULL;
+    mesh->texture = NULL;
 
     char *line = NULL;
     size_t blength = 0;
@@ -184,45 +186,14 @@ const struct mesh *get_mesh(const char *name)
         else if (strcmp(word, "texture") == 0)
         {
             word = strtok(NULL, " ");
-            mesh->material.texture = get_texture(word);
-            if (!mesh->material.texture)
+            mesh->texture = get_texture(word);
+            if (!mesh->texture)
             {
                 log_warn("Could not load texture");
                 free(line);
                 fclose(f_mesh);
                 mesh_free(mesh);
                 return NULL;
-            }
-        }
-        else if (strcmp(word, "shininess") == 0)
-        {
-            float val = strtof(strtok(NULL, " "), NULL);
-            mesh->material.shininess = val;
-        }
-        else
-        {
-            char *sx, *sy, *sz;
-            float x, y, z;
-
-            sx = strtok(NULL, " ");
-            sy = strtok(NULL, " ");
-            sz = strtok(NULL, " ");
-
-            x = strtof(sx, NULL);
-            y = strtof(sy, NULL);
-            z = strtof(sz, NULL);
-
-            if (strcmp(word, "ambient") == 0)
-            {
-                mesh->material.ambient = vec3_create(x, y, z);
-            }
-            else if (strcmp(word, "diffuse") == 0)
-            {
-                mesh->material.diffuse = vec3_create(x, y, z);
-            }
-            else if (strcmp(word, "specular") == 0)
-            {
-                mesh->material.specular = vec3_create(x, y, z);
             }
         }
     }
@@ -290,13 +261,13 @@ bool read_polygon(const char *name, struct mesh *mesh)
             else if (strcmp(word, "end_header") == 0)
             {
                 read_state = read_vertices;
-                mesh->vertices = malloc(mesh->vertex_count * sizeof(struct vert_mesh));
-                mesh->indices = malloc(mesh->index_count * sizeof(GLushort));
+                mesh->vertices = malloc(mesh->vertex_count * sizeof(struct vert_textured));
+                mesh->indices = malloc(mesh->index_count * sizeof(GLuint));
             }
         }
         else if (read_state == read_vertices)
         {
-            struct vert_mesh *v = mesh->vertices + vertices_read;
+            struct vert_textured *v = mesh->vertices + vertices_read;
 
             char *word = strtok(line, " ");
             v->pos.x = strtof(word, NULL);
@@ -305,12 +276,10 @@ bool read_polygon(const char *name, struct mesh *mesh)
             word = strtok(NULL, " ");
             v->pos.z = strtof(word, NULL);
 
-            word = strtok(NULL, " ");
-            v->norm.x = strtof(word, NULL);
-            word = strtok(NULL, " ");
-            v->norm.y = strtof(word, NULL);
-            word = strtok(NULL, " ");
-            v->norm.z = strtof(word, NULL);
+            // Skip normals
+            strtok(NULL, " ");
+            strtok(NULL, " ");
+            strtok(NULL, " ");
 
             word = strtok(NULL, " ");
             v->uvx = strtof(word, NULL);
@@ -348,22 +317,18 @@ struct mesh create_quad_mesh()
     mesh_init(&quad_mesh, 4, 6);
 
     quad_mesh.vertices[0].pos = vec3_create(-0.5f, 0.0f, 0.5f);
-    quad_mesh.vertices[0].norm = VEC3_UP;
     quad_mesh.vertices[0].uvx = 0.0f;
     quad_mesh.vertices[0].uvy = 1.0f;
 
     quad_mesh.vertices[1].pos = vec3_create(-0.5f, 0.0f, -0.5f);
-    quad_mesh.vertices[1].norm = VEC3_UP;
     quad_mesh.vertices[1].uvx = 0.0f;
     quad_mesh.vertices[1].uvy = 0.0f;
 
     quad_mesh.vertices[2].pos = vec3_create(0.5f, 0.0f, -0.5f);
-    quad_mesh.vertices[2].norm = VEC3_UP;
     quad_mesh.vertices[2].uvx = 1.0f;
     quad_mesh.vertices[2].uvy = 0.0f;
 
     quad_mesh.vertices[3].pos = vec3_create(0.5f, 0.0f, 0.5f);
-    quad_mesh.vertices[3].norm = VEC3_UP;
     quad_mesh.vertices[3].uvx = 1.0f;
     quad_mesh.vertices[3].uvy = 1.0f;
 
@@ -383,122 +348,98 @@ struct mesh create_cube_mesh()
     mesh_init(&cube_mesh, 24, 36);
 
     cube_mesh.vertices[0].pos = vec3_create(1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[0].norm = vec3_create(-0.0f, 0.0f, 1.0f);
     cube_mesh.vertices[0].uvx = 0.875f;
     cube_mesh.vertices[0].uvy = 0.5f;
 
     cube_mesh.vertices[1].pos = vec3_create(-1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[1].norm = vec3_create(-0.0f, 0.0f, 1.0f);
     cube_mesh.vertices[1].uvx = 0.625f;
     cube_mesh.vertices[1].uvy = 0.75f;
 
     cube_mesh.vertices[2].pos = vec3_create(-1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[2].norm = vec3_create(-0.0f, 0.0f, 1.0f);
     cube_mesh.vertices[2].uvx = 0.625f;
     cube_mesh.vertices[2].uvy = 0.5f;
 
     cube_mesh.vertices[3].pos = vec3_create(-1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[3].norm = vec3_create(0.0f, 1.0f, -0.0f);
     cube_mesh.vertices[3].uvx = 0.625f;
     cube_mesh.vertices[3].uvy = 0.75f;
 
     cube_mesh.vertices[4].pos = vec3_create(1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[4].norm = vec3_create(0.0f, 1.0f, -0.0f);
     cube_mesh.vertices[4].uvx = 0.375f;
     cube_mesh.vertices[4].uvy = 1.0f;
 
     cube_mesh.vertices[5].pos = vec3_create(-1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[5].norm = vec3_create(0.0f, 1.0f, -0.0f);
     cube_mesh.vertices[5].uvx = 0.375f;
     cube_mesh.vertices[5].uvy = 0.75f;
 
     cube_mesh.vertices[6].pos = vec3_create(1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[6].norm = vec3_create(1.0f, 0.0f, -0.0f);
     cube_mesh.vertices[6].uvx = 0.625f;
     cube_mesh.vertices[6].uvy = 0.0f;
 
     cube_mesh.vertices[7].pos = vec3_create(1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[7].norm = vec3_create(1.0f, 0.0f, -0.0f);
     cube_mesh.vertices[7].uvx = 0.375f;
     cube_mesh.vertices[7].uvy = 0.25f;
 
     cube_mesh.vertices[8].pos = vec3_create(1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[8].norm = vec3_create(1.0f, 0.0f, -0.0f);
     cube_mesh.vertices[8].uvx = 0.375f;
     cube_mesh.vertices[8].uvy = 0.0f;
 
     cube_mesh.vertices[9].pos = vec3_create(-1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[9].norm = vec3_create(-0.0f, 0.0f, -1.0f);
     cube_mesh.vertices[9].uvx = 0.375f;
     cube_mesh.vertices[9].uvy = 0.5f;
 
     cube_mesh.vertices[10].pos = vec3_create(1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[10].norm = vec3_create(-0.0f, 0.0f, -1.0f);
     cube_mesh.vertices[10].uvx = 0.125f;
     cube_mesh.vertices[10].uvy = 0.75f;
 
     cube_mesh.vertices[11].pos = vec3_create(1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[11].norm = vec3_create(-0.0f, 0.0f, -1.0f);
     cube_mesh.vertices[11].uvx = 0.125f;
     cube_mesh.vertices[11].uvy = 0.5f;
 
     cube_mesh.vertices[12].pos = vec3_create(-1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[12].norm = vec3_create(-1.0f, 0.0f, 0.0f);
     cube_mesh.vertices[12].uvx = 0.625f;
     cube_mesh.vertices[12].uvy = 0.5f;
 
     cube_mesh.vertices[13].pos = vec3_create(-1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[13].norm = vec3_create(-1.0f, 0.0f, 0.0f);
     cube_mesh.vertices[13].uvx = 0.375f;
     cube_mesh.vertices[13].uvy = 0.75f;
 
     cube_mesh.vertices[14].pos = vec3_create(-1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[14].norm = vec3_create(-1.0f, 0.0f, 0.0f);
     cube_mesh.vertices[14].uvx = 0.375f;
     cube_mesh.vertices[14].uvy = 0.5f;
 
     cube_mesh.vertices[15].pos = vec3_create(1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[15].norm = vec3_create(0.0f, -1.0f, 0.0f);
     cube_mesh.vertices[15].uvx = 0.625f;
     cube_mesh.vertices[15].uvy = 0.25f;
 
     cube_mesh.vertices[16].pos = vec3_create(-1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[16].norm = vec3_create(0.0f, -1.0f, 0.0f);
     cube_mesh.vertices[16].uvx = 0.375f;
     cube_mesh.vertices[16].uvy = 0.5f;
 
     cube_mesh.vertices[17].pos = vec3_create(1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[17].norm = vec3_create(0.0f, -1.0f, 0.0f);
     cube_mesh.vertices[17].uvx = 0.375f;
     cube_mesh.vertices[17].uvy = 0.25f;
 
     cube_mesh.vertices[18].pos = vec3_create(1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[18].norm = vec3_create(-0.0f, 0.0f, 1.0f);
     cube_mesh.vertices[18].uvx = 0.875f;
     cube_mesh.vertices[18].uvy = 0.75f;
 
     cube_mesh.vertices[19].pos = vec3_create(1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[19].norm = vec3_create(0.0f, 1.0f, -0.0f);
     cube_mesh.vertices[19].uvx = 0.625f;
     cube_mesh.vertices[19].uvy = 1.0f;
 
     cube_mesh.vertices[20].pos = vec3_create(1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[20].norm = vec3_create(1.0f, 0.0f, 0.0f);
     cube_mesh.vertices[20].uvx = 0.625f;
     cube_mesh.vertices[20].uvy = 0.25f;
 
     cube_mesh.vertices[21].pos = vec3_create(-1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[21].norm = vec3_create(-0.0f, -0.0f, -1.0f);
     cube_mesh.vertices[21].uvx = 0.375f;
     cube_mesh.vertices[21].uvy = 0.75f;
 
     cube_mesh.vertices[22].pos = vec3_create(-1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[22].norm = vec3_create(-1.0f, 0.0f, 0.0f);
     cube_mesh.vertices[22].uvx = 0.625f;
     cube_mesh.vertices[22].uvy = 0.75f;
 
     cube_mesh.vertices[23].pos = vec3_create(-1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[23].norm = vec3_create(0.0f, -1.0f, 0.0f);
     cube_mesh.vertices[23].uvx = 0.625f;
     cube_mesh.vertices[23].uvy = 0.5f;
 
@@ -691,10 +632,10 @@ void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)
     mesh->vertex_count = vertex_count;
     mesh->index_count = index_count;
 
-    mesh->vertices = malloc(vertex_count * sizeof(struct vert_mesh));
-    mesh->indices = malloc(index_count * sizeof(GLushort));
+    mesh->vertices = malloc(vertex_count * sizeof(struct vert_textured));
+    mesh->indices = malloc(index_count * sizeof(GLuint));
 
-    mesh->material.texture = NULL;
+    mesh->texture = NULL;
 }
 
 void texture_free(struct texture *texture)

@@ -17,7 +17,6 @@ enum
 
 struct actor;
 typedef void (*ac_update)(struct actor *ac, float dt);
-typedef void (*ac_render)(struct actor *ac);
 typedef void (*ac_death)(struct actor *ac);
 
 struct cbox
@@ -37,7 +36,6 @@ struct actor
     enum actor_type type;
     size_t spawn_tick;
     ac_update update;
-    ac_render render;
     ac_death death;
 };
 

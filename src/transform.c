@@ -30,7 +30,7 @@ struct vec3 transform_right(const struct transform *t)
 struct mat4 transform_matrix(const struct transform *t)
 {
     return mat4_mul(mat4_mul(mat4_translate(t->pos),
-                 t->rot), mat4_scale(t->scale));
+        t->rot), mat4_scale(t->scale));
 }
 
 void transform_local_rotx(struct transform *t, float delta)
@@ -48,6 +48,7 @@ void transform_local_rotz(struct transform *t, float delta)
     t->rot = mat4_mul(t->rot, mat4_rotz(delta));
 }
 
+// FIXME: A bit hacky to use lookat for this
 struct mat4 forward_to_rotation(struct vec3 forward, struct vec3 up)
 {
     struct vec3 target = vec3_add(forward, forward);
