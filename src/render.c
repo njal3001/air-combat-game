@@ -23,7 +23,11 @@
 #define FOV (M_PI / 2.5f)
 #define ASPECT_RATIO (1920.0f / 1080.0f)
 
-float skybox_vertices[] =
+#define MAX_MESH_VERTICES 10000
+#define MAX_MESH_INDICES 15000
+#define MAX_MESH_INSTANCES 30000
+
+const float skybox_vertices[] =
 {
     -1.0f,  1.0f, -1.0f,
     -1.0f, -1.0f, -1.0f,
@@ -68,23 +72,28 @@ float skybox_vertices[] =
      1.0f, -1.0f,  1.0f
 };
 
-const struct texture *current_texture;
-
-struct vert_array main_vao;
-struct vert_array skybox_vao;
-struct vert_array text_vao;
-struct vert_array untextured_vao;
-
-struct shader main_shader;
-struct shader skybox_shader;
-struct shader text_shader;
-struct shader untextured_shader;
-
 struct mat4 projection;
 struct camera camera;
 
+struct vao mesh_vao;
+struct ebo mesh_ebo;
+struct vbo mesh_vbo;
+struct vbo mesh_model_vbo;
+struct shader mesh_instancing_shader;
+const struct mesh *instance_mesh;
+struct mat4 instancing_models[MAX_MESH_INSTANCES];
+size_t instance_count;
+
+struct vert_array skybox_vao;
+struct shader skybox_shader;
 struct cubemap skybox_map;
+
+struct vert_array text_vao;
+struct shader text_shader;
 struct font font;
+
+struct vert_array untextured_vao;
+struct shader untextured_shader;
 
 struct render_frame current_frame;
 const struct mesh *current_mesh;
@@ -96,7 +105,8 @@ static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
 static void on_window_size_changed(GLFWwindow *window, int width, int height);
 
 
-static void render_frame_begin(const struct vert_array *vao, const struct texture *texture, const struct shader *shader);
+static void render_frame_begin(const struct vert_array *vao, const struct texture *texture,
+        const struct shader *shader);
 static void render_frame_end();
 
 bool render_init(GLFWwindow *window)
@@ -119,27 +129,48 @@ bool render_init(GLFWwindow *window)
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
-    // Main vertex array
-    struct vert_array_data main_data;
-    main_data.vbo_size = MAX_VERTICES;
-    main_data.ebo_size = MAX_INDICES;
-    main_data.vbo_data = NULL;
-    main_data.ebo_data = NULL;
+    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
+    camera.transform = transform_create(VEC3_ZERO);
 
     struct vert_attrib pos_attrib =
     {
         .type = VTYPE_FLOAT3,
         .normalized = false,
+        .divisor = 0,
     };
     struct vert_attrib uv_attrib =
     {
         .type = VTYPE_FLOAT2,
         .normalized = false,
+        .divisor = 0,
+    };
+    struct vert_attrib model_attrib =
+    {
+        .type = VTYPE_FLOAT16,
+        .normalized = false,
+        .divisor = 1,
     };
 
-    vert_array_init(&main_vao, &main_data, VARRAY_DYNAMIC, 2, pos_attrib, uv_attrib);
+    // Mesh rendering setup
+    vao_init(&mesh_vao);
+    vao_bind(&mesh_vao);
 
-    // Skybox vertex array
+    ebo_init(&mesh_ebo, MAX_MESH_INDICES, NULL, EBO_FORMAT_U32, BUFFER_DYNAMIC);
+    vbo_init(&mesh_vbo, MAX_MESH_VERTICES * sizeof(struct vert_mesh), NULL, BUFFER_DYNAMIC);
+    vbo_init(&mesh_model_vbo, MAX_MESH_INSTANCES * sizeof(struct mat4), NULL, BUFFER_DYNAMIC);
+
+    vao_set_ebo(&mesh_vao, &mesh_ebo);
+    vao_add_vbo(&mesh_vao, &mesh_vbo, 2, pos_attrib, uv_attrib);
+    vao_add_vbo(&mesh_vao, &mesh_model_vbo, 1, model_attrib);
+
+    instance_mesh = NULL;
+    instance_count = 0;
+
+    load_shader(&mesh_instancing_shader, "mesh_instance.vert", "mesh_instance.frag");
+    glUseProgram(mesh_instancing_shader.id);
+    shader_set_int(&mesh_instancing_shader, "u_sampler", 0);
+
+    // Skybox rendering setup
     struct vert_array_data skybox_data;
     skybox_data.vbo_size = 36;
     skybox_data.ebo_size = 0;
@@ -148,59 +179,10 @@ bool render_init(GLFWwindow *window)
 
     vert_array_init(&skybox_vao, &skybox_data, VARRAY_STATIC, 1, pos_attrib);
 
-    // Text vertex array
-    struct vert_array_data text_data;
-    text_data.vbo_size = MAX_VERTICES;
-    text_data.ebo_size = MAX_INDICES;
-    text_data.vbo_data = NULL;
-    text_data.ebo_data = NULL;
-
-    struct vert_attrib text_attrib =
-    {
-        .type = VTYPE_FLOAT4,
-        .normalized = false,
-    };
-
-    vert_array_init(&text_vao, &text_data, VARRAY_DYNAMIC, 1, text_attrib);
-
-    // Untextured vertex array
-    struct vert_array_data untextured_data;
-    untextured_data.vbo_size = MAX_VERTICES;
-    untextured_data.ebo_size = MAX_INDICES;
-    untextured_data.vbo_data = NULL;
-    untextured_data.ebo_data = NULL;
-
-    struct vert_attrib color_attrib =
-    {
-        .type = VTYPE_UBYTE4,
-        .normalized = true,
-    };
-
-    vert_array_init(&untextured_vao, &untextured_data, VARRAY_DYNAMIC, 2,
-        pos_attrib, color_attrib);
-
-    // Create main shader
-    load_shader(&main_shader, "main.vert", "main.frag");
-    glUseProgram(main_shader.id);
-    shader_set_int(&main_shader, "u_sampler", 0);
-
-    // Create skybox shader
     load_shader(&skybox_shader, "skybox.vert", "skybox.frag");
     glUseProgram(skybox_shader.id);
     shader_set_int(&skybox_shader, "u_skybox", 0);
 
-    // Create text shader
-    load_shader(&text_shader, "text.vert", "text.frag");
-    glUseProgram(text_shader.id);
-    shader_set_int(&text_shader, "u_bitmap", 0);
-    struct mat4 text_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
-    shader_set_mat4(&text_shader, "u_projection", &text_proj);
-
-    // Create untextured shader
-    load_shader(&untextured_shader, "untextured.vert", "untextured.frag");
-    glUseProgram(untextured_shader.id);
-
-    // Loading assets
     const char *skybox_faces[6] =
     {
         "bkg/blue/bkg1_right.png",
@@ -212,28 +194,72 @@ bool render_init(GLFWwindow *window)
     };
 
     load_cubemap(&skybox_map, skybox_faces);
+
+    // Text rendering setup
+    struct vert_array_data text_data;
+    text_data.vbo_size = MAX_VERTICES;
+    text_data.ebo_size = MAX_INDICES;
+    text_data.vbo_data = NULL;
+    text_data.ebo_data = NULL;
+
+    struct vert_attrib text_attrib =
+    {
+        .type = VTYPE_FLOAT4,
+        .normalized = false,
+        .divisor = 0,
+    };
+
+    vert_array_init(&text_vao, &text_data, VARRAY_DYNAMIC, 1, text_attrib);
+
+    load_shader(&text_shader, "text.vert", "text.frag");
+    glUseProgram(text_shader.id);
+    shader_set_int(&text_shader, "u_bitmap", 0);
+    struct mat4 text_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
+    shader_set_mat4(&text_shader, "u_projection", &text_proj);
+
     load_font(&font, "vcr_osd_mono_regular_48.sfl");
 
-    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
-    camera.transform = transform_create(VEC3_ZERO);
+    // Untextured rendering setup
+    struct vert_array_data untextured_data;
+    untextured_data.vbo_size = MAX_VERTICES;
+    untextured_data.ebo_size = MAX_INDICES;
+    untextured_data.vbo_data = NULL;
+    untextured_data.ebo_data = NULL;
+
+    struct vert_attrib color_attrib =
+    {
+        .type = VTYPE_UBYTE4,
+        .normalized = true,
+        .divisor = 0,
+    };
+
+    vert_array_init(&untextured_vao, &untextured_data, VARRAY_DYNAMIC, 2,
+        pos_attrib, color_attrib);
+
+    load_shader(&untextured_shader, "untextured.vert", "untextured.frag");
+    glUseProgram(untextured_shader.id);
 
     return true;
 }
 
 void render_shutdown()
 {
-    vert_array_free(&main_vao);
+    ebo_free(&mesh_ebo);
+    vbo_free(&mesh_vbo);
+    vbo_free(&mesh_model_vbo);
+    vao_free(&mesh_vao);
+
     vert_array_free(&skybox_vao);
     vert_array_free(&text_vao);
     vert_array_free(&untextured_vao);
-    shader_free(&main_shader);
     shader_free(&skybox_shader);
     shader_free(&text_shader);
     shader_free(&untextured_shader);
     font_free(&font);
 }
 
-void render_frame_begin(const struct vert_array *vao, const struct texture *texture, const struct shader *shader)
+void render_frame_begin(const struct vert_array *vao, const struct texture *texture,
+        const struct shader *shader)
 {
     assert(!current_frame.vbo_count);
     assert(!current_frame.ebo_count);
@@ -288,17 +314,6 @@ void render_frame_end()
     current_frame.vbo_map = NULL;
 }
 
-void set_texture(const struct texture *texture)
-{
-    if (current_texture != texture)
-    {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture->id);
-
-        current_texture = texture;
-    }
-}
-
 void render_skybox()
 {
     struct mat4 skybox_view = mat4_remove_translation(camera_view(&camera));
@@ -311,56 +326,56 @@ void render_skybox()
     shader_set_mat4(&skybox_shader, "u_projection", &projection);
 
     glBindVertexArray(skybox_vao.id);
-    glBindBuffer(GL_ARRAY_BUFFER, skybox_vao.vbo);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_map.id);
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     glDepthFunc(GL_LESS);
 }
 
-void mesh_frame_begin(const struct mesh *mesh)
+void mesh_instancing_begin(const struct mesh *mesh)
 {
-    render_frame_begin(&main_vao, mesh->texture, &main_shader);
-    current_mesh = mesh;
+    assert(!instance_count);
+    assert(!instance_mesh);
+    assert(mesh->texture);
 
+    instance_mesh = mesh;
+
+    vao_bind(&mesh_vao);
+
+    ebo_set_data(&mesh_ebo, mesh->index_count, mesh->indices);
+    vbo_set_data(&mesh_vbo, mesh->vertex_count * sizeof(struct vert_mesh), mesh->vertices);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, mesh->texture->id);
+
+    glUseProgram(mesh_instancing_shader.id);
     struct mat4 view = camera_view(&camera);
-    shader_set_mat4(&main_shader, "u_view", &view);
-    shader_set_mat4(&main_shader, "u_projection", &projection);
+    shader_set_mat4(&mesh_instancing_shader, "u_view", &view);
+    shader_set_mat4(&mesh_instancing_shader, "u_projection", &projection);
 }
 
-void mesh_frame_end()
+void push_mesh_transform(const struct transform *transform)
 {
-    render_frame_end();
-    current_mesh = NULL;
+    assert(instance_mesh);
+    assert(instance_count < MAX_MESH_INSTANCES);
+
+    instancing_models[instance_count] = transform_matrix(transform);
+    instance_count++;
 }
 
-void push_mesh(const struct transform *transform)
+void mesh_instancing_end()
 {
-    assert(current_mesh);
-    assert(current_frame.vbo_count + current_mesh->vertex_count <= MAX_VERTICES);
-    assert(current_frame.ebo_count + current_mesh->index_count <= MAX_INDICES);
+    assert(instance_mesh);
 
-    struct mat4 model = transform_matrix(transform);
-
-    struct vert_textured *vmap = current_frame.vbo_map;
-    for (size_t i = 0; i < current_mesh->vertex_count; i++)
+    if (instance_count)
     {
-        struct vert_textured *vert = current_mesh->vertices + i;
-        vmap->pos = mat4_vmul(model, vert->pos);
-        vmap->uvx = vert->uvx;
-        vmap->uvy = vert->uvy;
-        vmap++;
+        vbo_set_data(&mesh_model_vbo, instance_count * sizeof(struct mat4), instancing_models);
+        glDrawElementsInstanced(GL_TRIANGLES, instance_mesh->index_count, GL_UNSIGNED_INT, 0,
+                instance_count);
     }
 
-    for (size_t i = 0; i < current_mesh->index_count; i++)
-    {
-        current_frame.ebo_map[i] = current_frame.vbo_count + current_mesh->indices[i];
-    }
-
-    current_frame.vbo_count += current_mesh->vertex_count;
-    current_frame.ebo_count += current_mesh->index_count;
-    current_frame.vbo_map = vmap;
-    current_frame.ebo_map += current_mesh->index_count;
+    instance_count = 0;
+    instance_mesh = NULL;
 }
 
 void text_frame_begin()
@@ -378,7 +393,7 @@ void push_text(const char *str, float x, float y, float size)
     float curx = x;
     float cury = y;
 
-    struct vert_text *vmap = current_frame.vbo_map;
+    struct vert_ui *vmap = current_frame.vbo_map;
 
     uint8_t c;
     while ((c = *str))

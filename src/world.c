@@ -172,7 +172,7 @@ void world_render_type(enum actor_type type)
         {
             if (ac->type == type)
             {
-                push_mesh(&ac->transform);
+                push_mesh_transform(&ac->transform);
             }
 
             num_ac_found++;
@@ -191,24 +191,25 @@ void world_render()
 
     render_skybox();
 
+    // TODO: Should not use instancing for small groups of meshes
     if (player)
     {
-        mesh_frame_begin(&player_mesh);
-        push_mesh(&player->transform);
-        mesh_frame_end();
+        mesh_instancing_begin(&player_mesh);
+        push_mesh_transform(&player->transform);
+        mesh_instancing_end();
     }
 
-    mesh_frame_begin(asteroid_mesh);
+    mesh_instancing_begin(asteroid_mesh);
     world_render_type(ACTOR_TYPE_ASTEROID);
-    mesh_frame_end();
+    mesh_instancing_end();
 
-    mesh_frame_begin(energycell_mesh);
+    mesh_instancing_begin(energycell_mesh);
     world_render_type(ACTOR_TYPE_ENERGYCELL);
-    mesh_frame_end();
+    mesh_instancing_end();
 
-    mesh_frame_begin(&projectile_mesh);
+    mesh_instancing_begin(&projectile_mesh);
     world_render_type(ACTOR_TYPE_PROJECTILE);
-    mesh_frame_end();
+    mesh_instancing_end();
 
     if (show_colliders)
     {
@@ -238,9 +239,9 @@ void world_render()
 
     if (player)
     {
-        // text_frame_begin();
-        // player_render_state_info(player);
-        // text_frame_end();
+        text_frame_begin();
+        player_render_state_info(player);
+        text_frame_end();
     }
 }
 

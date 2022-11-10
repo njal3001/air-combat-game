@@ -16,14 +16,14 @@ struct color
     uint8_t a;
 };
 
-struct vert_textured
+struct vert_mesh
 {
     struct vec3 pos;
     float uvx;
     float uvy;
 };
 
-struct vert_text
+struct vert_ui
 {
     float x, y;
     float uvx, uvy;
@@ -48,7 +48,7 @@ struct cubemap
 
 struct mesh
 {
-    struct vert_textured *vertices;
+    struct vert_mesh *vertices;
     GLuint *indices;
     size_t vertex_count;
     size_t index_count;
@@ -89,9 +89,10 @@ void render_shutdown();
 void set_texture(const struct texture *texture);
 
 void render_skybox();
-void mesh_frame_begin(const struct mesh *mesh);
-void mesh_frame_end();
-void push_mesh(const struct transform *transform);
+
+void mesh_instancing_begin(const struct mesh *mesh);
+void push_mesh_transform(const struct transform *transform);
+void mesh_instancing_end();
 
 void text_frame_begin();
 void text_frame_end();

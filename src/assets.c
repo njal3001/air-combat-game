@@ -261,13 +261,13 @@ bool read_polygon(const char *name, struct mesh *mesh)
             else if (strcmp(word, "end_header") == 0)
             {
                 read_state = read_vertices;
-                mesh->vertices = malloc(mesh->vertex_count * sizeof(struct vert_textured));
+                mesh->vertices = malloc(mesh->vertex_count * sizeof(struct vert_mesh));
                 mesh->indices = malloc(mesh->index_count * sizeof(GLuint));
             }
         }
         else if (read_state == read_vertices)
         {
-            struct vert_textured *v = mesh->vertices + vertices_read;
+            struct vert_mesh *v = mesh->vertices + vertices_read;
 
             char *word = strtok(line, " ");
             v->pos.x = strtof(word, NULL);
@@ -632,7 +632,7 @@ void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)
     mesh->vertex_count = vertex_count;
     mesh->index_count = index_count;
 
-    mesh->vertices = malloc(vertex_count * sizeof(struct vert_textured));
+    mesh->vertices = malloc(vertex_count * sizeof(struct vert_mesh));
     mesh->indices = malloc(index_count * sizeof(GLuint));
 
     mesh->texture = NULL;
