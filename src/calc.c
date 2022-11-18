@@ -31,3 +31,8 @@ float frandrange(float min, float max)
 {
     return frand() * (max - min) + min;
 }
+
+int sign(int val)
+{
+    return val < 0 ? -1 : 1;
+}

@@ -12,12 +12,11 @@
 
 #define MAX_ACTORS 20000
 
-#define ITEM_MAX_DIST 10500.0f
-#define ITEM_SPAWN_MIN_DIST 1500.0f
-#define ITEM_SPAWN_MAX_DIST 10000.0f
+#define MAX_CHUNKS 500
+#define CHUNK_ASTEROID_COUNT 30
+#define CHUNK_DIM 2000.0f
 
-#define ASTEROID_TARGET_COUNT 10000
-#define ENERGYCELL_TARGET_COUNT 100
+#define CHUNK_SPAN 2
 
 struct projectile_data
 {
@@ -38,7 +37,17 @@ struct asteroid_data
     float speed;
 };
 
+struct world_chunk
+{
+    struct ivec3 pos;
+    size_t actors[CHUNK_ASTEROID_COUNT];
+};
+
+size_t num_chunks;
+struct world_chunk chunks[MAX_CHUNKS];
+
 struct actor *player;
+struct ivec3 player_chunk_pos;
 struct actor actors[MAX_ACTORS];
 size_t num_actors;
 size_t tick;
@@ -48,12 +57,11 @@ size_t num_asteroids;
 size_t num_energycells;
 
 static void world_render_type(enum actor_type type);
-static void world_populate(float min_dist, float max_dist);
 
 static void projectile_update(struct actor *ac, float dt);
 static void projectile_render(struct actor *ac);
 
-static void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed);
+static struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed);
 static void asteroid_update(struct actor *ac, float dt);
 static void asteroid_render(struct actor *ac);
 
@@ -61,7 +69,14 @@ static void spawn_energycell(struct vec3 pos);
 static void energycell_update(struct actor *ac, float dt);
 static void energycell_render(struct actor *ac);
 
+static void generate_chunk(struct ivec3 pos);
+static void destroy_chunk(struct ivec3 pos);
+static struct ivec3 world_to_chunk_pos(struct vec3 wpos);
+static void world_gen_init();
+static void world_gen_update();
+
 static bool check_item_out_of_range(const struct actor *ac, float max_dist);
+
 
 void world_init()
 {
@@ -69,6 +84,7 @@ void world_init()
     tick = 0;
 
     player = spawn_player(VEC3_ZERO);
+    world_gen_init();
 
     projectile_mesh = create_quad_mesh();
     projectile_mesh.texture = get_texture("lasers/11.png");
@@ -78,32 +94,6 @@ void world_init()
 
     asteroid_mesh = get_mesh("rock.mesh");
     energycell_mesh = get_mesh("energycell.mesh");
-
-    world_populate(ITEM_SPAWN_MIN_DIST, ITEM_SPAWN_MAX_DIST);
-}
-
-void world_populate(float min_dist, float max_dist)
-{
-    struct vec3 ppos = player->transform.pos;
-
-    while (num_asteroids < ASTEROID_TARGET_COUNT)
-    {
-        struct vec3 pos = vec3_add(ppos, vec3_randrange(min_dist, max_dist));
-        struct vec3 dir = vec3_rand();
-        size_t size = randrange(5, 20);
-        float speed = frandrange(5.0f, 100.0f);
-        spawn_asteroid(pos, dir, size, speed);
-
-        num_asteroids++;
-    }
-
-    while (num_energycells < ENERGYCELL_TARGET_COUNT)
-    {
-        struct vec3 pos = vec3_add(ppos, vec3_randrange(min_dist, max_dist));
-        spawn_energycell(pos);
-
-        num_energycells++;
-    }
 }
 
 void world_update(float dt)
@@ -113,10 +103,7 @@ void world_update(float dt)
     size_t num_ac_found = 0;
     size_t num_ac_target = num_actors;
 
-    if (player)
-    {
-        world_populate(ITEM_SPAWN_MAX_DIST, ITEM_SPAWN_MAX_DIST);
-    }
+    world_gen_update();
 
     size_t i = 0;
     while (num_ac_found != num_ac_target)
@@ -189,7 +176,7 @@ void world_render()
     // TODO: Draw opaque objects first, then
     // draw transparent objects in sorted order
 
-    render_skybox();
+    // render_skybox();
 
     // TODO: Should not use instancing for small groups of meshes
     if (player)
@@ -363,7 +350,7 @@ void projectile_update(struct actor *pr, float dt)
     }
 }
 
-void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed)
+struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed)
 {
     struct actor *ac = new_actor();
 
@@ -381,29 +368,16 @@ void spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed)
     data->size = size;
     data->speed = speed;
     ac->data = data;
+
+    return ac;
 }
 
 void asteroid_update(struct actor *ac, float dt)
 {
-    if (check_item_out_of_range(ac, ITEM_MAX_DIST))
-    {
-        ac->flags |= ACTOR_DEAD;
-    }
-    else
-    {
-        struct asteroid_data *data = ac->data;
-        if (player && check_collide(ac, player))
-        {
-            actor_hurt(player, 100.0f);
-            ac->flags |= ACTOR_DEAD;
-        }
-        else
-        {
-            float drot = dt * 2.0f * 1.0f / (float)data->size;
-            vec3_add_eq(&ac->transform.pos, vec3_mul(data->dir, data->speed * dt));
-            transform_local_roty(&ac->transform, drot);
-        }
-    }
+    struct asteroid_data *data = ac->data;
+    float drot = dt * 2.0f / (float)data->size;
+    vec3_add_eq(&ac->transform.pos, vec3_mul(data->dir, data->speed * dt));
+    transform_local_roty(&ac->transform, drot);
 }
 
 void spawn_energycell(struct vec3 pos)
@@ -411,7 +385,7 @@ void spawn_energycell(struct vec3 pos)
     struct actor *ac = new_actor();
 
     ac->transform = transform_create(pos);
-    ac->transform.scale = vec3_create(5.0f, 5.0f, 5.0f);
+    ac->transform.scale = vec3_create(35.0f, 35.0f, 35.0f);
     ac->hp = 0.0f;
     ac->update = energycell_update;
     ac->type = ACTOR_TYPE_ENERGYCELL;
@@ -421,31 +395,155 @@ void spawn_energycell(struct vec3 pos)
 
 void energycell_update(struct actor *ac, float dt)
 {
-    if (check_item_out_of_range(ac, ITEM_MAX_DIST))
+    if (player && check_collide(ac, player))
     {
+        player_energize(player);
         ac->flags |= ACTOR_DEAD;
     }
-    else
+}
+
+void generate_chunk(struct ivec3 pos)
+{
+    assert(num_chunks < MAX_CHUNKS);
+    struct world_chunk *chunk = chunks + num_chunks;
+    chunk->pos = pos;
+
+    struct vec3 chunk_center = vec3_create(pos.x * CHUNK_DIM, pos.y * CHUNK_DIM, pos.z * CHUNK_DIM);
+    float c2 = CHUNK_DIM / 2.0f;
+
+    for (size_t i = 0; i < CHUNK_ASTEROID_COUNT; i++)
     {
-        if (player && check_collide(ac, player))
+        float dx = frandrange(-c2, c2);
+        float dy = frandrange(-c2, c2);
+        float dz = frandrange(-c2, c2);
+
+        struct vec3 apos = vec3_add(chunk_center, vec3_create(dx, dy, dz));
+        struct vec3 dir = vec3_rand();
+        size_t size = randrange(10, 25);
+        // float speed = frandrange(5.0f, 100.0f);
+        float speed = 0.0f;
+        struct actor *a = spawn_asteroid(apos, dir, size, speed);
+        chunk->actors[i] = a->id;
+
+        num_asteroids++;
+    }
+
+    num_chunks++;
+}
+
+void destroy_chunk(struct ivec3 pos)
+{
+    for (size_t i = 0; i < num_chunks; i++)
+    {
+        struct world_chunk *chunk = chunks + i;
+        if (ivec3_equal(chunk->pos, pos))
         {
-            player_energize(player);
-            ac->flags |= ACTOR_DEAD;
+            for (size_t ia = 0; ia < CHUNK_ASTEROID_COUNT; ia++)
+            {
+                size_t id = chunk->actors[ia];
+                actors[id - 1].flags |= ACTOR_DEAD;
+            }
+
+            if (num_chunks > 1 && i != num_chunks - 1)
+            {
+                chunks[i] = chunks[num_chunks - 1];
+            }
+
+            num_chunks--;
         }
     }
 }
 
-bool check_item_out_of_range(const struct actor *ac, float max_dist)
+struct ivec3 world_to_chunk_pos(struct vec3 wpos)
+{
+    float c2 = CHUNK_DIM / 2.0f;
+
+    struct ivec3 res;
+    res.x = (wpos.x + sign(wpos.x) * c2) / CHUNK_DIM;
+    res.y = (wpos.y + sign(wpos.y) * c2) / CHUNK_DIM;
+    res.z = (wpos.z + sign(wpos.z) * c2) / CHUNK_DIM;
+
+    return res;
+}
+
+void world_gen_init()
+{
+    player_chunk_pos = world_to_chunk_pos(player->transform.pos);
+    for (int z = -CHUNK_SPAN; z <= CHUNK_SPAN; z++)
+    {
+        for (int y = -CHUNK_SPAN; y <= CHUNK_SPAN; y++)
+        {
+            for (int x = -CHUNK_SPAN; x <= CHUNK_SPAN; x++)
+            {
+                if (x || y || z)
+                {
+                    struct ivec3 delta = ivec3_create(x, y, z);
+                    struct ivec3 chunk_pos = ivec3_add(player_chunk_pos, delta);
+                    generate_chunk(chunk_pos);
+                }
+            }
+        }
+    }
+}
+
+void world_gen_update()
 {
     if (player)
     {
-        struct vec3 pdiff = vec3_sub(player->transform.pos, ac->transform.pos);
-        float dist2 = vec3_length2(pdiff);
-        if (dist2 >= max_dist * max_dist)
-        {
-            return true;
-        }
-    }
+        struct ivec3 new_pc_pos = world_to_chunk_pos(player->transform.pos);
+        int dx = new_pc_pos.x - player_chunk_pos.x;
+        int dy = new_pc_pos.y - player_chunk_pos.y;
+        int dz = new_pc_pos.z - player_chunk_pos.z;
 
-    return false;
+        if (dx)
+        {
+            for (int y = -CHUNK_SPAN; y <= CHUNK_SPAN; y++)
+            {
+                for (int z = -CHUNK_SPAN; z <= CHUNK_SPAN; z++)
+                {
+                    struct ivec3 delta = ivec3_create(dx * CHUNK_SPAN, y, z);
+                    struct ivec3 chunk_pos = ivec3_add(delta, new_pc_pos);
+                    generate_chunk(chunk_pos);
+
+                    struct ivec3 ndelta = ivec3_create(-dx * CHUNK_SPAN, y, z);
+                    struct ivec3 des_pos = ivec3_add(player_chunk_pos, ndelta);
+                    destroy_chunk(des_pos);
+                }
+            }
+        }
+        if (dy)
+        {
+            for (int x = -CHUNK_SPAN; x <= CHUNK_SPAN; x++)
+            {
+                for (int z = -CHUNK_SPAN; z <= CHUNK_SPAN; z++)
+                {
+                    struct ivec3 delta = ivec3_create(x, dy * CHUNK_SPAN, z);
+                    struct ivec3 chunk_pos = ivec3_add(delta, new_pc_pos);
+                    generate_chunk(chunk_pos);
+
+                    struct ivec3 ndelta = ivec3_create(x, -dy * CHUNK_SPAN, z);
+                    struct ivec3 des_pos = ivec3_add(player_chunk_pos, ndelta);
+                    destroy_chunk(des_pos);
+                }
+            }
+        }
+        if (dz)
+        {
+            for (int x = -CHUNK_SPAN; x <= CHUNK_SPAN; x++)
+            {
+                for (int y = -CHUNK_SPAN; y <= CHUNK_SPAN; y++)
+                {
+                    struct ivec3 delta = ivec3_create(x, y, dz * CHUNK_SPAN);
+                    struct ivec3 chunk_pos = ivec3_add(delta, new_pc_pos);
+                    generate_chunk(chunk_pos);
+
+                    struct ivec3 ndelta = ivec3_create(x, y, -dz * CHUNK_SPAN);
+                    struct ivec3 des_pos = ivec3_add(player_chunk_pos, ndelta);
+                    destroy_chunk(des_pos);
+                }
+            }
+        }
+
+        player_chunk_pos = new_pc_pos;
+    }
 }

@@ -11,9 +11,9 @@
 #include "calc.h"
 #include "timer.h"
 
-#define SPD_NORM 800.0f
-#define SPD_MIN 600.0f
-#define SPD_MAX 1000.0f
+#define SPD_NORM 1500.0f
+#define SPD_MIN 1200.0f
+#define SPD_MAX 1800.0f
 #define ACCEL 100.0f
 #define ANG_ACCEL 3.0f
 #define ANG_SPD_MAX 1.0f

@@ -13,8 +13,8 @@ struct mat4 camera_view(const struct camera *camera)
 
 void camera_free_update(struct camera *camera)
 {
-    const float rotation_speed = 0.015f;
-    const float speed = 1.5f;
+    const float rotation_speed = 0.035f;
+    const float speed = 100.0f;
 
     if (key_down(GLFW_KEY_W))
     {

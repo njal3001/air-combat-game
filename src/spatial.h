@@ -1,4 +1,5 @@
 #pragma once
+#include <stdbool.h>
 
 struct vec3
 {
@@ -31,6 +32,11 @@ struct mat4
     };
 };
 
+struct ivec3
+{
+    int x, y, z;
+};
+
 struct vec3 vec3_create(float x, float y, float z);
 
 struct vec3 vec3_neg(struct vec3 v);
@@ -50,6 +56,10 @@ float vec3_length2(struct vec3 v);
 struct vec3 vec3_normalize(struct vec3 v);
 struct vec3 vec3_rand();
 struct vec3 vec3_randrange(float min, float max);
+
+struct ivec3 ivec3_create(int x, int y, int z);
+struct ivec3 ivec3_add(struct ivec3 lhs, struct ivec3 rhs);
+bool ivec3_equal(struct ivec3 a, struct ivec3 b);
 
 struct mat4 mat4_create(
         float m11, float m12, float m13, float m14,

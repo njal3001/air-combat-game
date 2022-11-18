@@ -143,6 +143,31 @@ struct vec3 vec3_randrange(float min, float max)
     return vec3_mul(dir, len);
 }
 
+struct ivec3 ivec3_create(int x, int y, int z)
+{
+    struct ivec3 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    return res;
+}
+
+struct ivec3 ivec3_add(struct ivec3 lhs, struct ivec3 rhs)
+{
+    struct ivec3 res;
+    res.x = lhs.x + rhs.x;
+    res.y = lhs.y + rhs.y;
+    res.z = lhs.z + rhs.z;
+
+    return res;
+}
+
+bool ivec3_equal(struct ivec3 a, struct ivec3 b)
+{
+    return a.x == b.x && a.y == b.y && a.z == b.z;
+}
+
+
 struct mat4 mat4_create(
         float m11, float m12, float m13, float m14,
         float m21, float m22, float m23, float m24,

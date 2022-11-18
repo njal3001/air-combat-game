@@ -100,17 +100,20 @@ const struct mesh *current_mesh;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
-                                  const GLchar *message, const void *user_param);
+                                  const GLchar *message,
+                                  const void *user_param);
 
 static void on_window_size_changed(GLFWwindow *window, int width, int height);
 
-
-static void render_frame_begin(const struct vert_array *vao, const struct texture *texture,
+static void render_frame_begin(const struct vert_array *vao,
+        const struct texture *texture,
         const struct shader *shader);
 static void render_frame_end();
 
 bool render_init(GLFWwindow *window)
 {
+    glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
+
     // Debug messages
     glEnable(GL_DEBUG_OUTPUT);
     glEnable(GL_DEBUG_OUTPUT_SYNCHRONOUS);
@@ -129,7 +132,7 @@ bool render_init(GLFWwindow *window)
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
-    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 10000.0f);
+    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 3000.0f);
     camera.transform = transform_create(VEC3_ZERO);
 
     struct vert_attrib pos_attrib =
@@ -299,7 +302,6 @@ void render_frame_end()
     {
         if (current_frame.ebo_map)
         {
-            // glDrawArrays(GL_TRIANGLES, 0, current_frame.vbo_count);
             glDrawElements(GL_TRIANGLES, current_frame.ebo_count, GL_UNSIGNED_INT, (void*)NULL);
         }
         else
