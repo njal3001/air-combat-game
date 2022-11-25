@@ -11,14 +11,11 @@
 #include "calc.h"
 #include "timer.h"
 
-#define SPD_NORM 1500.0f
-#define SPD_MIN 1200.0f
-#define SPD_MAX 1800.0f
-#define ACCEL 100.0f
+#define SPD_START 1000.0f
+#define SPD_MAX 8000.0f
+#define ACCEL_START 100.0f
 #define ANG_ACCEL 3.0f
 #define ANG_SPD_MAX 1.0f
-#define ENERGY_MAX 25.0f
-#define ENERGY_REFILL 3.0f
 
 static void player_update(struct actor *ac, float dt);
 static void player_death(struct actor *ac);
@@ -31,16 +28,14 @@ struct actor *spawn_player(struct vec3 pos)
     ac->update = player_update;
     ac->death = player_death;
     ac->type = ACTOR_TYPE_PLAYER;
-    ac->hp = 150.0f;
+    ac->hp = 50.0f;
     ac->cbox.offset = VEC3_ZERO;
     ac->cbox.bounds = VEC3_ONE;
 
     struct player_data *data = malloc(sizeof(struct player_data));
-    data->spd = SPD_NORM;
+    data->spd = SPD_START;
     data->ang_spdx = 0.0f;
     data->ang_spdy = 0.0f;
-    data->energy = ENERGY_MAX;
-    data->reload = 0.0f;
     ac->data = data;
 
     return ac;
@@ -49,9 +44,16 @@ struct actor *spawn_player(struct vec3 pos)
 void player_update(struct actor *ac, float dt)
 {
     struct player_data *data = ac->data;
+
+    struct actor *hit = first_collide(ac, ACTOR_TYPE_ASTEROID);
+    if (hit)
+    {
+        hit->flags |= ACTOR_DEAD;
+        actor_hurt(ac, 10.0f);
+    }
+
     struct vec3 fwd = transform_forward(&ac->transform);
 
-    int dir = key_down(GLFW_KEY_K) - key_down(GLFW_KEY_J);
     int rdirx = key_down(GLFW_KEY_S) - key_down(GLFW_KEY_W);
     int rdiry = key_down(GLFW_KEY_A) - key_down(GLFW_KEY_D);
 
@@ -77,34 +79,10 @@ void player_update(struct actor *ac, float dt)
     }
     transform_local_roty(&ac->transform, data->ang_spdy * dt);
 
-    if (dir)
-    {
-        data->spd = fclamp(SPD_MIN, data->spd + ACCEL * dt * dir, SPD_MAX);
-    }
-    else
-    {
-        data->spd = approach(data->spd, SPD_NORM, ACCEL * dt);
-    }
-
+    // Acceleration decreases as speed increases
+    float accel = ((SPD_MAX - data->spd) / (SPD_MAX - SPD_START)) * ACCEL_START;
+    data->spd += accel * dt;
     vec3_add_eq(&ac->transform.pos, vec3_mul(fwd, data->spd * dt));
-
-    data->reload -= dt;
-    if (data->reload <= 0.0f && key_down(GLFW_KEY_L))
-    {
-        struct vec3 pr_pos = vec3_sub(vec3_add(ac->transform.pos, vec3_mul(fwd, 1.2f)),
-                vec3_mul(transform_up(&ac->transform), 2.0f));
-        struct actor *pr = spawn_projectile(pr_pos, 100.0f + data->spd);
-        pr->transform.rot = ac->transform.rot;
-
-        data->reload = 0.25f;
-        audio_play("laser7.wav");
-    }
-
-    data->energy -= dt;
-    if (data->energy <= 0.0f)
-    {
-        // ac->flags |= ACTOR_DEAD;
-    }
 
     struct camera *cam = get_camera();
     cam->transform.pos = ac->transform.pos;
@@ -116,12 +94,6 @@ void player_death(struct actor *ac)
     world_end();
 }
 
-void player_energize(struct actor *ac)
-{
-    struct player_data *data = ac->data;
-    data->energy += ENERGY_REFILL;
-}
-
 void player_render_state_info(struct actor *ac)
 {
     struct player_data *data = ac->data;
@@ -130,9 +102,9 @@ void player_render_state_info(struct actor *ac)
     struct vec3 fwd = transform_forward(&ac->transform);
 
     static char pinfo[256];
-    snprintf(pinfo, 256, "HP: %f\nEnergy: %f\nPos: (%f, %f, %f)\n"
+    snprintf(pinfo, 256, "HP: %f\nPos: (%f, %f, %f)\n"
             "Forward: (%f, %f, %f)\nSpd: %f\nAng Spd: (%f, %f)\n",
-            ac->hp, data->energy, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
+            ac->hp, pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
             data->spd, data->ang_spdx, data->ang_spdy);
 
     push_text(pinfo, 15.0f, 160.0f, 0.4f);

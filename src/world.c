@@ -12,8 +12,8 @@
 
 #define MAX_ACTORS 20000
 
-#define MAX_CHUNKS 500
-#define CHUNK_ASTEROID_COUNT 30
+#define MAX_CHUNKS 300
+#define CHUNK_ASTEROID_COUNT 10
 #define CHUNK_DIM 2000.0f
 
 #define CHUNK_SPAN 2
@@ -28,7 +28,6 @@ struct mesh player_mesh;
 struct mesh projectile_mesh;
 
 const struct mesh *asteroid_mesh;
-const struct mesh *energycell_mesh;
 
 struct asteroid_data
 {
@@ -54,7 +53,6 @@ size_t tick;
 bool show_colliders;
 
 size_t num_asteroids;
-size_t num_energycells;
 
 static void world_render_type(enum actor_type type);
 
@@ -64,10 +62,6 @@ static void projectile_render(struct actor *ac);
 static struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed);
 static void asteroid_update(struct actor *ac, float dt);
 static void asteroid_render(struct actor *ac);
-
-static void spawn_energycell(struct vec3 pos);
-static void energycell_update(struct actor *ac, float dt);
-static void energycell_render(struct actor *ac);
 
 static void generate_chunk(struct ivec3 pos);
 static void destroy_chunk(struct ivec3 pos);
@@ -93,7 +87,6 @@ void world_init()
     player_mesh.texture = get_texture("rusted_metal.jpg");
 
     asteroid_mesh = get_mesh("rock.mesh");
-    energycell_mesh = get_mesh("energycell.mesh");
 }
 
 void world_update(float dt)
@@ -126,10 +119,6 @@ void world_update(float dt)
                 if (ac->type == ACTOR_TYPE_ASTEROID)
                 {
                     num_asteroids--;
-                }
-                else if (ac->type == ACTOR_TYPE_ENERGYCELL)
-                {
-                    num_energycells--;
                 }
 
                 free(ac->data);
@@ -176,7 +165,7 @@ void world_render()
     // TODO: Draw opaque objects first, then
     // draw transparent objects in sorted order
 
-    // render_skybox();
+    render_skybox();
 
     // TODO: Should not use instancing for small groups of meshes
     if (player)
@@ -190,14 +179,6 @@ void world_render()
     world_render_type(ACTOR_TYPE_ASTEROID);
     mesh_instancing_end();
 
-    mesh_instancing_begin(energycell_mesh);
-    world_render_type(ACTOR_TYPE_ENERGYCELL);
-    mesh_instancing_end();
-
-    mesh_instancing_begin(&projectile_mesh);
-    world_render_type(ACTOR_TYPE_PROJECTILE);
-    mesh_instancing_end();
-
     if (show_colliders)
     {
         untextured_frame_begin();
@@ -208,10 +189,7 @@ void world_render()
             struct actor *ac = actors + i;
             if (ac->id)
             {
-                if (ac->type != ACTOR_TYPE_PLAYER)
-                {
-                    render_collider_outline(ac);
-                }
+                render_collider_outline(ac);
 
                 num_ac_found++;
                 if (num_ac_found == num_actors)
@@ -308,48 +286,6 @@ void actor_hurt(struct actor *ac, float dmg)
     }
 }
 
-struct actor *spawn_projectile(struct vec3 pos, float speed)
-{
-    struct actor *pr = new_actor();
-    struct projectile_data *data = malloc(sizeof(struct projectile_data));
-
-    pr->transform = transform_create(pos);
-    pr->transform.scale = vec3_create(2.0f, 2.0f, 2.0f);
-    pr->update = projectile_update;
-    pr->type = ACTOR_TYPE_PROJECTILE;
-    pr->cbox.offset = VEC3_ZERO;
-    pr->cbox.bounds = VEC3_ONE;
-
-    data->speed = speed;
-    data->ttl = 5.0f;
-    pr->data = data;
-
-    return pr;
-}
-
-void projectile_update(struct actor *pr, float dt)
-{
-    struct projectile_data *data = pr->data;
-    struct vec3 forward = transform_forward(&pr->transform);
-    vec3_add_eq(&pr->transform.pos, vec3_mul(forward, data->speed * dt));
-
-    struct actor *hit = first_collide(pr, ACTOR_TYPE_ASTEROID);
-    if (hit)
-    {
-        actor_hurt(hit, 12.5f);
-        pr->flags |= ACTOR_DEAD;
-        audio_play("bomb.wav");
-    }
-    else
-    {
-        data->ttl -= dt;
-        if (data->ttl <= 0)
-        {
-            pr->flags |= ACTOR_DEAD;
-        }
-    }
-}
-
 struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed)
 {
     struct actor *ac = new_actor();
@@ -375,31 +311,9 @@ struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, floa
 void asteroid_update(struct actor *ac, float dt)
 {
     struct asteroid_data *data = ac->data;
-    float drot = dt * 2.0f / (float)data->size;
+    float drot = dt * 10.0f / (float)data->size;
     vec3_add_eq(&ac->transform.pos, vec3_mul(data->dir, data->speed * dt));
     transform_local_roty(&ac->transform, drot);
-}
-
-void spawn_energycell(struct vec3 pos)
-{
-    struct actor *ac = new_actor();
-
-    ac->transform = transform_create(pos);
-    ac->transform.scale = vec3_create(35.0f, 35.0f, 35.0f);
-    ac->hp = 0.0f;
-    ac->update = energycell_update;
-    ac->type = ACTOR_TYPE_ENERGYCELL;
-    ac->cbox.offset = vec3_create(0.0f, 0.0f, 2.5f);
-    ac->cbox.bounds = vec3_create(1.0f, 1.0f, 2.4f);
-}
-
-void energycell_update(struct actor *ac, float dt)
-{
-    if (player && check_collide(ac, player))
-    {
-        player_energize(player);
-        ac->flags |= ACTOR_DEAD;
-    }
 }
 
 void generate_chunk(struct ivec3 pos)
@@ -420,8 +334,8 @@ void generate_chunk(struct ivec3 pos)
         struct vec3 apos = vec3_add(chunk_center, vec3_create(dx, dy, dz));
         struct vec3 dir = vec3_rand();
         size_t size = randrange(10, 25);
-        // float speed = frandrange(5.0f, 100.0f);
-        float speed = 0.0f;
+        float speed = frandrange(5.0f, 100.0f);
+        // float speed = 0.0f;
         struct actor *a = spawn_asteroid(apos, dir, size, speed);
         chunk->actors[i] = a->id;
 

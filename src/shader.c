@@ -1,4 +1,5 @@
 #include "shader.h"
+#include "render.h"
 #include <stdio.h>
 
 static GLuint shader_get_location(struct shader *shader, const char *name);
@@ -97,7 +98,18 @@ void shader_set_vec3(struct shader *shader, const char *loc, struct vec3 val)
 
 void shader_set_mat4(struct shader *shader, const char *loc, struct mat4 *val)
 {
-    glUniformMatrix4fv(shader_get_location(shader, loc), 1, GL_FALSE, &val->m11);
+    glUniformMatrix4fv(shader_get_location(shader, loc), 1,
+            GL_FALSE, &val->m11);
+}
+
+void shader_set_color(struct shader *shader, const char *loc, struct color col)
+{
+    float r = col.r / 255.0f;
+    float g = col.g / 255.0f;
+    float b = col.b / 255.0f;
+    float a = col.a / 255.0f;
+
+    glUniform4f(shader_get_location(shader, loc), r, g, b, a);
 }
 
 GLuint shader_get_location(struct shader *shader, const char *name)

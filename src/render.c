@@ -20,12 +20,18 @@
 #define MAX_VERTICES 30000000
 #define MAX_INDICES 50000000
 
-#define FOV (M_PI / 2.5f)
+#define NEAR 0.1f
+#define FAR 10000.0f
+#define FOV (M_PI / 4.0f)
 #define ASPECT_RATIO (1920.0f / 1080.0f)
 
 #define MAX_MESH_VERTICES 10000
 #define MAX_MESH_INDICES 15000
 #define MAX_MESH_INSTANCES 30000
+
+#define SKYBOX_FOG_AMOUNT 0.8f
+#define FOG_START 3500.0f
+#define FOG_END 5000.0f
 
 const float skybox_vertices[] =
 {
@@ -98,6 +104,8 @@ struct shader untextured_shader;
 struct render_frame current_frame;
 const struct mesh *current_mesh;
 
+struct color fog_color;
+
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
                                   const GLchar *message,
@@ -112,7 +120,7 @@ static void render_frame_end();
 
 bool render_init(GLFWwindow *window)
 {
-    glClearColor(0.7f, 0.7f, 0.7f, 1.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
 
     // Debug messages
     glEnable(GL_DEBUG_OUTPUT);
@@ -132,8 +140,9 @@ bool render_init(GLFWwindow *window)
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
-    projection = mat4_perspective(FOV, ASPECT_RATIO, 0.1f, 3000.0f);
+    projection = mat4_perspective(FOV, ASPECT_RATIO, NEAR, FAR);
     camera.transform = transform_create(VEC3_ZERO);
+    fog_color = color_create(255, 255, 255, 255);
 
     struct vert_attrib pos_attrib =
     {
@@ -172,6 +181,9 @@ bool render_init(GLFWwindow *window)
     load_shader(&mesh_instancing_shader, "mesh_instance.vert", "mesh_instance.frag");
     glUseProgram(mesh_instancing_shader.id);
     shader_set_int(&mesh_instancing_shader, "u_sampler", 0);
+    shader_set_color(&mesh_instancing_shader, "u_fog_color", fog_color);
+    shader_set_float(&mesh_instancing_shader, "u_fog_start", FOG_START);
+    shader_set_float(&mesh_instancing_shader, "u_fog_end", FOG_END);
 
     // Skybox rendering setup
     struct vert_array_data skybox_data;
@@ -185,6 +197,8 @@ bool render_init(GLFWwindow *window)
     load_shader(&skybox_shader, "skybox.vert", "skybox.frag");
     glUseProgram(skybox_shader.id);
     shader_set_int(&skybox_shader, "u_skybox", 0);
+    shader_set_color(&skybox_shader, "u_fog_color", fog_color);
+    shader_set_float(&skybox_shader, "u_fog_amount", SKYBOX_FOG_AMOUNT);
 
     const char *skybox_faces[6] =
     {
@@ -354,6 +368,7 @@ void mesh_instancing_begin(const struct mesh *mesh)
     struct mat4 view = camera_view(&camera);
     shader_set_mat4(&mesh_instancing_shader, "u_view", &view);
     shader_set_mat4(&mesh_instancing_shader, "u_projection", &projection);
+    shader_set_vec3(&mesh_instancing_shader, "u_view_pos", camera.transform.pos);
 }
 
 void push_mesh_transform(const struct transform *transform)

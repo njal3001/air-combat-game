@@ -4,6 +4,7 @@
 #include "hashmap.h"
 #include "spatial.h"
 
+struct color;
 struct shader
 {
     GLuint id;
@@ -17,3 +18,4 @@ void shader_set_float(struct shader *shader, const char *loc, float val);
 void shader_set_int(struct shader *shader, const char *loc, int val);
 void shader_set_vec3(struct shader *shader, const char *loc, struct vec3 val);
 void shader_set_mat4(struct shader *shader, const char *loc, struct mat4 *val);
+void shader_set_color(struct shader *shader, const char *loc, struct color col);
