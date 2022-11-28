@@ -8,6 +8,7 @@
 #include "shader.h"
 #include "assets.h"
 #include "vertex.h"
+#include "texture.h"
 
 #ifdef _WIN32
 #    define WIN32_LEAN_AND_MEAN
@@ -32,6 +33,26 @@
 #define SKYBOX_FOG_AMOUNT 0.8f
 #define FOG_START 3500.0f
 #define FOG_END 5000.0f
+
+struct vert_ui
+{
+    float x, y;
+    float uvx, uvy;
+};
+
+struct vert_untextured
+{
+    struct vec3 pos;
+    struct color col;
+};
+
+struct render_frame
+{
+    void *vbo_map;
+    GLuint *ebo_map;
+    size_t vbo_count;
+    size_t ebo_count;
+};
 
 const float skybox_vertices[] =
 {
@@ -78,6 +99,46 @@ const float skybox_vertices[] =
      1.0f, -1.0f,  1.0f
 };
 
+const float peffect_vertices[] =
+{
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, -1.0f, 1.0f,
+    -1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, -1.0f,
+    -1.0f, -1.0f, -1.0f,
+    -1.0f, 1.0f, -1.0f,
+    1.0f, -1.0f, 1.0f,
+    -1.0f, -1.0f, -1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, 1.0f, -1.0f,
+    1.0f, -1.0f,-1.0f,
+    -1.0f, -1.0f,-1.0f,
+    -1.0f, -1.0f,-1.0f,
+    -1.0f, 1.0f, 1.0f,
+    -1.0f, 1.0f, -1.0f,
+    1.0f, -1.0f, 1.0f,
+    -1.0f, -1.0f, 1.0f,
+    -1.0f, -1.0f,-1.0f,
+    -1.0f, 1.0f, 1.0f,
+    -1.0f, -1.0f, 1.0f,
+    1.0f, -1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, -1.0f, -1.0f,
+    1.0f, 1.0f, -1.0f,
+    1.0f, -1.0f,-1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, -1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, -1.0f,
+    -1.0f, 1.0f, -1.0f,
+    1.0f, 1.0f, 1.0f,
+    -1.0f, 1.0f, -1.0f,
+    -1.0f, 1.0f, 1.0f,
+    1.0f, 1.0f, 1.0f,
+    -1.0f, 1.0f, 1.0f,
+    1.0f, -1.0f, 1.0f
+};
+
 struct mat4 projection;
 struct camera camera;
 
@@ -101,6 +162,10 @@ struct font font;
 struct vert_array untextured_vao;
 struct shader untextured_shader;
 
+struct vao peffect_vao;
+struct vbo peffect_vbo;
+struct shader spd_lines_shader;
+
 struct render_frame current_frame;
 const struct mesh *current_mesh;
 
@@ -120,7 +185,7 @@ static void render_frame_end();
 
 bool render_init(GLFWwindow *window)
 {
-    glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+    glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 
     // Debug messages
     glEnable(GL_DEBUG_OUTPUT);
@@ -142,7 +207,7 @@ bool render_init(GLFWwindow *window)
 
     projection = mat4_perspective(FOV, ASPECT_RATIO, NEAR, FAR);
     camera.transform = transform_create(VEC3_ZERO);
-    fog_color = color_create(255, 255, 255, 255);
+    fog_color = color_create(0, 0, 0, 255);
 
     struct vert_attrib pos_attrib =
     {
@@ -256,6 +321,16 @@ bool render_init(GLFWwindow *window)
     load_shader(&untextured_shader, "untextured.vert", "untextured.frag");
     glUseProgram(untextured_shader.id);
 
+    // Particle effect setup
+    vao_init(&peffect_vao);
+    vao_bind(&peffect_vao);
+
+    vbo_init(&peffect_vbo, sizeof(peffect_vertices),
+            peffect_vertices, BUFFER_STATIC);
+    vao_add_vbo(&peffect_vao, &peffect_vbo, 1, pos_attrib);
+
+    load_shader(&spd_lines_shader, "spd_lines.vert", "spd_lines.frag");
+
     return true;
 }
 
@@ -265,6 +340,11 @@ void render_shutdown()
     vbo_free(&mesh_vbo);
     vbo_free(&mesh_model_vbo);
     vao_free(&mesh_vao);
+    shader_free(&mesh_instancing_shader);
+
+    vbo_free(&peffect_vbo);
+    vao_free(&peffect_vao);
+    shader_free(&spd_lines_shader);
 
     vert_array_free(&skybox_vao);
     vert_array_free(&text_vao);
@@ -272,11 +352,13 @@ void render_shutdown()
     shader_free(&skybox_shader);
     shader_free(&text_shader);
     shader_free(&untextured_shader);
+
+    cubemap_free(&skybox_map);
     font_free(&font);
 }
 
-void render_frame_begin(const struct vert_array *vao, const struct texture *texture,
-        const struct shader *shader)
+void render_frame_begin(const struct vert_array *vao,
+        const struct texture *texture, const struct shader *shader)
 {
     assert(!current_frame.vbo_count);
     assert(!current_frame.ebo_count);
@@ -298,7 +380,8 @@ void render_frame_begin(const struct vert_array *vao, const struct texture *text
     if (vao->ebo)
     {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao->ebo);
-        current_frame.ebo_map = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY);
+        current_frame.ebo_map = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER,
+                GL_WRITE_ONLY);
     }
 }
 
@@ -316,7 +399,8 @@ void render_frame_end()
     {
         if (current_frame.ebo_map)
         {
-            glDrawElements(GL_TRIANGLES, current_frame.ebo_count, GL_UNSIGNED_INT, (void*)NULL);
+            glDrawElements(GL_TRIANGLES, current_frame.ebo_count,
+                    GL_UNSIGNED_INT, (void*)NULL);
         }
         else
         {
@@ -348,6 +432,17 @@ void render_skybox()
     glDepthFunc(GL_LESS);
 }
 
+void render_speed_lines()
+{
+    vao_bind(&peffect_vao);
+
+    glUseProgram(spd_lines_shader.id);
+    struct mat4 model = mat4_translate(vec3_create(0.0f, 0.0f, -0.5f));
+    shader_set_mat4(&spd_lines_shader, "u_model", &model);
+
+    glDrawArrays(GL_TRIANGLES, 0, 36);
+}
+
 void mesh_instancing_begin(const struct mesh *mesh)
 {
     assert(!instance_count);
@@ -359,7 +454,8 @@ void mesh_instancing_begin(const struct mesh *mesh)
     vao_bind(&mesh_vao);
 
     ebo_set_data(&mesh_ebo, mesh->index_count, mesh->indices);
-    vbo_set_data(&mesh_vbo, mesh->vertex_count * sizeof(struct vert_mesh), mesh->vertices);
+    vbo_set_data(&mesh_vbo, mesh->vertex_count * sizeof(struct vert_mesh),
+            mesh->vertices);
 
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mesh->texture->id);
@@ -599,9 +695,9 @@ void push_line(struct vec3 a, struct vec3 b, float thickness, struct color col)
     push_volume(p0, p1, p2, p3, p4, p5, p6, p7, col);
 }
 
-void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct vec3 p3,
-        struct vec3 p4, struct vec3 p5, struct vec3 p6, struct vec3 p7, float thickness,
-        struct color col)
+void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2,
+        struct vec3 p3, struct vec3 p4, struct vec3 p5, struct vec3 p6,
+        struct vec3 p7, float thickness, struct color col)
 {
     push_line(p0, p1, thickness, col);
     push_line(p1, p2, thickness, col);
@@ -623,22 +719,6 @@ void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct 
 struct camera *get_camera()
 {
     return &camera;
-}
-
-struct color color_create(uint8_t r, uint8_t g, uint8_t b, uint8_t a)
-{
-    struct color c;
-    c.r = r;
-    c.g = g;
-    c.b = b;
-    c.a = a;
-
-    return c;
-}
-
-struct vec3 color_to_vec3(struct color col)
-{
-    return vec3_create(col.r / 255.0f, col.g / 255.0f, col.b / 255.0f);
 }
 
 void on_window_size_changed(GLFWwindow *window, int width, int height)
@@ -735,9 +815,3 @@ void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
         printf("GL (%s) %s\n", type_name, message);
     }
 }
-
-const struct color COLOR_WHITE = { 255, 255, 255, 255 };
-const struct color COLOR_BLACK = { 0, 0, 0, 255       };
-const struct color COLOR_RED =   { 255, 0, 0, 255     };
-const struct color COLOR_GREEN = { 0, 255, 0, 255     };
-const struct color COLOR_BLUE =  { 0, 0, 255, 255     };

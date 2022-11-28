@@ -90,6 +90,7 @@ void game_run()
                 if (mevent == MENU_EVENT_PLAY)
                 {
                     state = GSTATE_PLAY;
+                    world_start();
                 }
 
                 menu_render();
@@ -123,8 +124,14 @@ void game_run()
                         dt * 100.0f, timer_fps());
 
                 text_frame_begin();
-                push_text(dinfo, 15.0f, 1060.0f, 0.4f);
+                push_text(dinfo, 1550.0f, 1060.0f, 0.4f);
                 text_frame_end();
+
+                if (world_ended())
+                {
+                    state = GSTATE_MENU;
+                }
+
                 break;
             }
         }

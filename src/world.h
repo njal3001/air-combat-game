@@ -2,9 +2,11 @@
 #include "actor.h"
 
 void world_init();
+void world_start();
 void world_update(float dt);
 void world_render();
 void world_end();
+bool world_ended();
 void world_free();
 
 void toggle_collider_rendering();

@@ -3,15 +3,16 @@
 #include <stdbool.h>
 #include "hashmap.h"
 #include "spatial.h"
+#include "color.h"
 
-struct color;
 struct shader
 {
     GLuint id;
     struct hashmap *locations;
 };
 
-bool shader_init(struct shader *shader, const char *vert_str, const char *frag_str);
+bool shader_init(struct shader *shader, const char *vert_str,
+        const char *frag_str);
 void shader_free(struct shader *shader);
 
 void shader_set_float(struct shader *shader, const char *loc, float val);

@@ -2,6 +2,7 @@
 #include <assert.h>
 #include <stdio.h>
 #include <math.h>
+#include <string.h>
 #include "player.h"
 #include "assets.h"
 #include "collide.h"
@@ -54,6 +55,8 @@ bool show_colliders;
 
 size_t num_asteroids;
 
+size_t score;
+
 static void world_render_type(enum actor_type type);
 
 static void projectile_update(struct actor *ac, float dt);
@@ -74,12 +77,6 @@ static bool check_item_out_of_range(const struct actor *ac, float max_dist);
 
 void world_init()
 {
-    // Spawn tick is 0 for all initial actors
-    tick = 0;
-
-    player = spawn_player(VEC3_ZERO);
-    world_gen_init();
-
     projectile_mesh = create_quad_mesh();
     projectile_mesh.texture = get_texture("lasers/11.png");
 
@@ -87,6 +84,22 @@ void world_init()
     player_mesh.texture = get_texture("rusted_metal.jpg");
 
     asteroid_mesh = get_mesh("rock.mesh");
+}
+
+void world_start()
+{
+    memset(actors, 0, MAX_ACTORS * sizeof(struct actor));
+    num_actors = 0;
+    num_chunks = 0;
+    num_asteroids = 0;
+    score = 0;
+
+    // Spawn tick is 0 for all initial actors
+    tick = 0;
+
+    player = spawn_player(VEC3_ZERO);
+    world_gen_init();
+
 }
 
 void world_update(float dt)
@@ -136,6 +149,8 @@ void world_update(float dt)
 
         i++;
     }
+
+    score++;
 }
 
 void world_render_type(enum actor_type type)
@@ -165,7 +180,7 @@ void world_render()
     // TODO: Draw opaque objects first, then
     // draw transparent objects in sorted order
 
-    render_skybox();
+    // render_skybox();
 
     // TODO: Should not use instancing for small groups of meshes
     if (player)
@@ -202,12 +217,20 @@ void world_render()
         untextured_frame_end();
     }
 
+    // render_speed_lines();
+
+    text_frame_begin();
+
+    char sscore[256];
+    snprintf(sscore, 256, "Score: %lu\n", score);
+    push_text(sscore, 20.0f, 1060.0f, 0.4f);
+
     if (player)
     {
-        text_frame_begin();
         player_render_state_info(player);
-        text_frame_end();
     }
+
+    text_frame_end();
 }
 
 void world_free()
@@ -219,7 +242,11 @@ void world_free()
 void world_end()
 {
     player = NULL;
-    printf("GAME OVER!\n");
+}
+
+bool world_ended()
+{
+    return !player;
 }
 
 void toggle_collider_rendering()

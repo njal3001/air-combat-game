@@ -1,5 +1,4 @@
 #include "shader.h"
-#include "render.h"
 #include <stdio.h>
 
 static GLuint shader_get_location(struct shader *shader, const char *name);

@@ -75,14 +75,14 @@ struct vao
     size_t attrib_count;
 };
 
-
-void vbo_init(struct vbo *vbo, size_t size, void *data, enum buffer_usage usage);
+void vbo_init(struct vbo *vbo, size_t size, const void *data,
+        enum buffer_usage usage);
 void vbo_bind(struct vbo *vbo);
 void vbo_set_data(struct vbo *vbo, size_t size, const void *data);
 void vbo_free(struct vbo *vbo);
 
-void ebo_init(struct ebo *ebo, size_t count, void *data, enum ebo_format format,
-        enum buffer_usage usage);
+void ebo_init(struct ebo *ebo, size_t count, const void *data,
+        enum ebo_format format, enum buffer_usage usage);
 void ebo_bind(struct ebo *ebo);
 void ebo_set_data(struct ebo *ebo, size_t count, const void *data);
 void ebo_free(struct ebo *ebo);

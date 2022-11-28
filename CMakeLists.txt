@@ -48,6 +48,14 @@ add_executable(air-combat
     src/vertex.h
     src/vertex.c
     src/actor.h
+    src/color.h
+    src/color.c
+    src/texture.h
+    src/texture.c
+    src/mesh.h
+    src/mesh.c
+    src/font.h
+    src/font.c
 )
 
 include_directories(. ${GLEW_INCLUDE_DIRS})

@@ -19,5 +19,7 @@ void main()
     float fog_amount =
         clamp((dist - u_fog_start) / (u_fog_end - u_fog_start), 0.0, 1.0);
     o_col = mix(texture(u_sampler, v_uv), u_fog_color, fog_amount);
-    o_col.a = 1.0 - fog_amount;
+    o_col.r *= 2.5;
+    o_col.g *= 2.5;
+    o_col.b *= 2.5;
 }

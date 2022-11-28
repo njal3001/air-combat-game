@@ -110,7 +110,8 @@ void vert_array_free(struct vert_array *varray)
     glDeleteVertexArrays(1, &varray->id);
 }
 
-void vbo_init(struct vbo *vbo, size_t size, void *data, enum buffer_usage usage)
+void vbo_init(struct vbo *vbo, size_t size, const void *data,
+        enum buffer_usage usage)
 {
     glGenBuffers(1, &vbo->id);
     glBindBuffer(GL_ARRAY_BUFFER, vbo->id);
@@ -133,8 +134,8 @@ void vbo_free(struct vbo *vbo)
     glDeleteBuffers(1, &vbo->id);
 }
 
-void ebo_init(struct ebo *ebo, size_t count, void *data, enum ebo_format format,
-        enum buffer_usage usage)
+void ebo_init(struct ebo *ebo, size_t count, const void *data,
+        enum ebo_format format, enum buffer_usage usage)
 {
     glGenBuffers(1, &ebo->id);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo->id);

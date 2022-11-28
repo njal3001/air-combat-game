@@ -10,6 +10,6 @@ uniform float u_fog_amount;
 
 void main()
 {
-    o_col = mix(texture(u_skybox, v_uv), u_fog_color, u_fog_amount);
-    // o_col = texture(u_skybox, v_uv);
+    // o_col = mix(texture(u_skybox, v_uv), u_fog_color, u_fog_amount);
+    o_col = texture(u_skybox, v_uv);
 }

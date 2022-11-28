@@ -5,6 +5,8 @@
 #include "platform.h"
 #include "hashmap.h"
 #include "log.h"
+#include "mesh.h"
+#include "font.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
@@ -18,8 +20,6 @@ char asset_path[MAX_ASSET_PATH];
 size_t root_length;
 
 static bool read_polygon(const char *name, struct mesh *mesh);
-static void texture_free(struct texture *texture);
-static void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count);
 
 static void load_asset_path(enum asset_type type, const char *name)
 {
@@ -102,30 +102,18 @@ const struct texture *get_texture(const char *name)
 
     load_asset_path(ASSET_OTHER, name);
 
-    int width, height, nchannels;
-    unsigned char *data = stbi_load(asset_path, &width, &height, &nchannels, 0);
+    struct image img;
+    img.data = stbi_load(asset_path, &img.width, &img.height, &img.channels, 0);
 
-    if (!data)
+    if (!img.data)
     {
         return NULL;
     }
 
-    GLuint tex_id;
-    glGenTextures(1, &tex_id);
-    glBindTexture(GL_TEXTURE_2D, tex_id);
-
-    GLenum format = nchannels == 4 ? GL_RGBA : GL_RGB;
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, format, GL_UNSIGNED_BYTE, data);
-
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    stbi_image_free(data);
-
     struct texture *tex = malloc(sizeof(struct texture));
-    tex->id = tex_id;
-    tex->width = width;
-    tex->height = height;
+    texture_init(tex, &img);
+
+    stbi_image_free(img.data);
 
     hashmap_put(textures, name, tex);
     return tex;
@@ -227,6 +215,9 @@ bool read_polygon(const char *name, struct mesh *mesh)
     size_t vertices_read = 0;
     size_t indices_read = 0;
 
+    size_t vertex_count;
+    size_t index_count;
+
     char *line = NULL;
     size_t blength = 0;
     int read;
@@ -251,18 +242,17 @@ bool read_polygon(const char *name, struct mesh *mesh)
 
                 if (strcmp(word, "vertex") == 0)
                 {
-                    mesh->vertex_count = strtol(scount, NULL, 10);
+                    vertex_count = strtol(scount, NULL, 10);
                 }
                 else if (strcmp(word, "face") == 0)
                 {
-                    mesh->index_count = strtol(scount, NULL, 10) * 3;
+                    index_count = strtol(scount, NULL, 10) * 3;
                 }
             }
             else if (strcmp(word, "end_header") == 0)
             {
                 read_state = read_vertices;
-                mesh->vertices = malloc(mesh->vertex_count * sizeof(struct vert_mesh));
-                mesh->indices = malloc(mesh->index_count * sizeof(GLuint));
+                mesh_init(mesh, vertex_count, index_count);
             }
         }
         else if (read_state == read_vertices)
@@ -311,179 +301,9 @@ bool read_polygon(const char *name, struct mesh *mesh)
     return true;
 }
 
-struct mesh create_quad_mesh()
-{
-    struct mesh quad_mesh;
-    mesh_init(&quad_mesh, 4, 6);
 
-    quad_mesh.vertices[0].pos = vec3_create(-0.5f, 0.0f, 0.5f);
-    quad_mesh.vertices[0].uvx = 0.0f;
-    quad_mesh.vertices[0].uvy = 1.0f;
-
-    quad_mesh.vertices[1].pos = vec3_create(-0.5f, 0.0f, -0.5f);
-    quad_mesh.vertices[1].uvx = 0.0f;
-    quad_mesh.vertices[1].uvy = 0.0f;
-
-    quad_mesh.vertices[2].pos = vec3_create(0.5f, 0.0f, -0.5f);
-    quad_mesh.vertices[2].uvx = 1.0f;
-    quad_mesh.vertices[2].uvy = 0.0f;
-
-    quad_mesh.vertices[3].pos = vec3_create(0.5f, 0.0f, 0.5f);
-    quad_mesh.vertices[3].uvx = 1.0f;
-    quad_mesh.vertices[3].uvy = 1.0f;
-
-    quad_mesh.indices[0] = 0;
-    quad_mesh.indices[1] = 2;
-    quad_mesh.indices[2] = 1;
-    quad_mesh.indices[3] = 0;
-    quad_mesh.indices[4] = 3;
-    quad_mesh.indices[5] = 2;
-
-    return quad_mesh;
-}
-
-struct mesh create_cube_mesh()
-{
-    struct mesh cube_mesh;
-    mesh_init(&cube_mesh, 24, 36);
-
-    cube_mesh.vertices[0].pos = vec3_create(1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[0].uvx = 0.875f;
-    cube_mesh.vertices[0].uvy = 0.5f;
-
-    cube_mesh.vertices[1].pos = vec3_create(-1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[1].uvx = 0.625f;
-    cube_mesh.vertices[1].uvy = 0.75f;
-
-    cube_mesh.vertices[2].pos = vec3_create(-1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[2].uvx = 0.625f;
-    cube_mesh.vertices[2].uvy = 0.5f;
-
-    cube_mesh.vertices[3].pos = vec3_create(-1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[3].uvx = 0.625f;
-    cube_mesh.vertices[3].uvy = 0.75f;
-
-    cube_mesh.vertices[4].pos = vec3_create(1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[4].uvx = 0.375f;
-    cube_mesh.vertices[4].uvy = 1.0f;
-
-    cube_mesh.vertices[5].pos = vec3_create(-1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[5].uvx = 0.375f;
-    cube_mesh.vertices[5].uvy = 0.75f;
-
-    cube_mesh.vertices[6].pos = vec3_create(1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[6].uvx = 0.625f;
-    cube_mesh.vertices[6].uvy = 0.0f;
-
-    cube_mesh.vertices[7].pos = vec3_create(1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[7].uvx = 0.375f;
-    cube_mesh.vertices[7].uvy = 0.25f;
-
-    cube_mesh.vertices[8].pos = vec3_create(1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[8].uvx = 0.375f;
-    cube_mesh.vertices[8].uvy = 0.0f;
-
-    cube_mesh.vertices[9].pos = vec3_create(-1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[9].uvx = 0.375f;
-    cube_mesh.vertices[9].uvy = 0.5f;
-
-    cube_mesh.vertices[10].pos = vec3_create(1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[10].uvx = 0.125f;
-    cube_mesh.vertices[10].uvy = 0.75f;
-
-    cube_mesh.vertices[11].pos = vec3_create(1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[11].uvx = 0.125f;
-    cube_mesh.vertices[11].uvy = 0.5f;
-
-    cube_mesh.vertices[12].pos = vec3_create(-1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[12].uvx = 0.625f;
-    cube_mesh.vertices[12].uvy = 0.5f;
-
-    cube_mesh.vertices[13].pos = vec3_create(-1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[13].uvx = 0.375f;
-    cube_mesh.vertices[13].uvy = 0.75f;
-
-    cube_mesh.vertices[14].pos = vec3_create(-1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[14].uvx = 0.375f;
-    cube_mesh.vertices[14].uvy = 0.5f;
-
-    cube_mesh.vertices[15].pos = vec3_create(1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[15].uvx = 0.625f;
-    cube_mesh.vertices[15].uvy = 0.25f;
-
-    cube_mesh.vertices[16].pos = vec3_create(-1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[16].uvx = 0.375f;
-    cube_mesh.vertices[16].uvy = 0.5f;
-
-    cube_mesh.vertices[17].pos = vec3_create(1.0f, -1.0f, -1.0f);
-    cube_mesh.vertices[17].uvx = 0.375f;
-    cube_mesh.vertices[17].uvy = 0.25f;
-
-    cube_mesh.vertices[18].pos = vec3_create(1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[18].uvx = 0.875f;
-    cube_mesh.vertices[18].uvy = 0.75f;
-
-    cube_mesh.vertices[19].pos = vec3_create(1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[19].uvx = 0.625f;
-    cube_mesh.vertices[19].uvy = 1.0f;
-
-    cube_mesh.vertices[20].pos = vec3_create(1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[20].uvx = 0.625f;
-    cube_mesh.vertices[20].uvy = 0.25f;
-
-    cube_mesh.vertices[21].pos = vec3_create(-1.0f, 1.0f, -1.0f);
-    cube_mesh.vertices[21].uvx = 0.375f;
-    cube_mesh.vertices[21].uvy = 0.75f;
-
-    cube_mesh.vertices[22].pos = vec3_create(-1.0f, 1.0f, 1.0f);
-    cube_mesh.vertices[22].uvx = 0.625f;
-    cube_mesh.vertices[22].uvy = 0.75f;
-
-    cube_mesh.vertices[23].pos = vec3_create(-1.0f, -1.0f, 1.0f);
-    cube_mesh.vertices[23].uvx = 0.625f;
-    cube_mesh.vertices[23].uvy = 0.5f;
-
-    cube_mesh.indices[0] = 0;
-    cube_mesh.indices[1] = 1;
-    cube_mesh.indices[2] = 2;
-    cube_mesh.indices[3] = 3;
-    cube_mesh.indices[4] = 4;
-    cube_mesh.indices[5] = 5;
-    cube_mesh.indices[6] = 6;
-    cube_mesh.indices[7] = 7;
-    cube_mesh.indices[8] = 8;
-    cube_mesh.indices[9] = 9;
-    cube_mesh.indices[10] = 10;
-    cube_mesh.indices[11] = 11;
-    cube_mesh.indices[12] = 12;
-    cube_mesh.indices[13] = 13;
-    cube_mesh.indices[14] = 14;
-    cube_mesh.indices[15] = 15;
-    cube_mesh.indices[16] = 16;
-    cube_mesh.indices[17] = 17;
-    cube_mesh.indices[18] = 0;
-    cube_mesh.indices[19] = 18;
-    cube_mesh.indices[20] = 1;
-    cube_mesh.indices[21] = 3;
-    cube_mesh.indices[22] = 19;
-    cube_mesh.indices[23] = 4;
-    cube_mesh.indices[24] = 6;
-    cube_mesh.indices[25] = 20;
-    cube_mesh.indices[26] = 7;
-    cube_mesh.indices[27] = 9;
-    cube_mesh.indices[28] = 21;
-    cube_mesh.indices[29] = 10;
-    cube_mesh.indices[30] = 12;
-    cube_mesh.indices[31] = 22;
-    cube_mesh.indices[32] = 13;
-    cube_mesh.indices[33] = 15;
-    cube_mesh.indices[34] = 23;
-    cube_mesh.indices[35] = 16;
-
-    return cube_mesh;
-}
-
-bool load_shader(struct shader *shader, const char *vert_name, const char *frag_name)
+bool load_shader(struct shader *shader, const char *vert_name,
+        const char *frag_name)
 {
     load_asset_path(ASSET_SHADER, vert_name);
     char *vert_str = read_file(asset_path);
@@ -508,31 +328,34 @@ bool load_shader(struct shader *shader, const char *vert_name, const char *frag_
     return success;
 }
 
-bool load_cubemap(struct cubemap *cmap, const char *const *faces)
+bool load_cubemap(struct cubemap *cmap, const char *const *face_names)
 {
-    glGenTextures(1, &cmap->id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, cmap->id);
+    struct image faces[6];
 
-    int width, height, nchannels;
     for (size_t i = 0; i < 6; i++)
     {
-        load_asset_path(ASSET_OTHER, faces[i]);
-        unsigned char *data = stbi_load(asset_path, &width, &height, &nchannels, 0);
-        if (!data)
+        load_asset_path(ASSET_OTHER, face_names[i]);
+        struct image *face = faces + i;
+        face->data = stbi_load(asset_path, &face->width, &face->height,
+                &face->channels, 0);
+        if (!face->data)
         {
+            log_warn("Could not load cubemap face %s", face_names[i]);
+            for (size_t j = 0; j < i; j++)
+            {
+                stbi_image_free(faces[j].data);
+            }
+
             return false;
         }
-
-        glTexImage2D(GL_TEXTURE_CUBE_MAP_POSITIVE_X + i, 0, GL_RGB,
-                width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-        stbi_image_free(data);
     }
 
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    cubemap_init(cmap, faces);
+
+    for (size_t i = 0; i < 6; i++)
+    {
+        stbi_image_free(faces[i].data);
+    }
 
     return true;
 }
@@ -549,6 +372,10 @@ bool load_font(struct font *font, const char *name)
         return false;
     }
 
+    size_t num_char;
+    uint8_t lheight;
+    struct image img;
+
     char *word;
     char *line = NULL;
     size_t blength = 0;
@@ -561,42 +388,30 @@ bool load_font(struct font *font, const char *name)
     getline(&line, &blength, f);
     strtok(line, " ");
     word = strtok(line, " ");
-    font->lheight = strtol(word, NULL, 10);
+    lheight = strtol(word, NULL, 10);
 
     // Bitmap
-    int width, height, nchannels;
     getline(&line, &blength, f);
     line[strcspn(line, "\n")] = '\0';
     load_asset_path(ASSET_OTHER, line);
 
-    unsigned char *data = stbi_load(asset_path, &width, &height, &nchannels, 0);
-    if (!data)
+    img.data = stbi_load(asset_path, &img.width, &img.height,
+            &img.channels, 0);
+    if (!img.data)
     {
         log_warn("Could not open file %s", asset_path);
         free(line);
         return false;
     }
 
-    GLuint tex_id;
-    glGenTextures(1, &tex_id);
-    glBindTexture(GL_TEXTURE_2D, tex_id);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, data);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-    stbi_image_free(data);
-
-    font->bitmap.id = tex_id;
-    font->bitmap.width = width;
-    font->bitmap.height = height;
-
     // Number of characters
     getline(&line, &blength, f);
-    font->num_char = strtol(line, NULL, 10);
-    font->chars = malloc(sizeof(struct fchar) * font->num_char);
+    num_char = strtol(line, NULL, 10);
+
+    font_init(font, num_char, lheight, &img);
+    stbi_image_free(img.data);
 
     // Character information
-    bool first_char = true;
     while (getline(&line, &blength, f) != -1)
     {
         word = strtok(line, " ");
@@ -606,20 +421,16 @@ bool load_font(struct font *font, const char *name)
             break;
         }
 
-        if (first_char)
-        {
-            font->start_id = id;
-            first_char = false;
-        }
+        struct fchar c;
+        c.x = strtol(strtok(NULL, " "), NULL, 10);
+        c.y = strtol(strtok(NULL, " "), NULL, 10);
+        c.w = strtol(strtok(NULL, " "), NULL, 10);
+        c.h = strtol(strtok(NULL, " "), NULL, 10);
+        c.xoff = strtol(strtok(NULL, " "), NULL, 10);
+        c.yoff = strtol(strtok(NULL, " "), NULL, 10);
+        c.adv = strtol(strtok(NULL, " "), NULL, 10);
 
-        struct fchar *c = font->chars + id - font->start_id;
-        c->x = strtol(strtok(NULL, " "), NULL, 10);
-        c->y = strtol(strtok(NULL, " "), NULL, 10);
-        c->w = strtol(strtok(NULL, " "), NULL, 10);
-        c->h = strtol(strtok(NULL, " "), NULL, 10);
-        c->xoff = strtol(strtok(NULL, " "), NULL, 10);
-        c->yoff = strtol(strtok(NULL, " "), NULL, 10);
-        c->adv = strtol(strtok(NULL, " "), NULL, 10);
+        font_set_char(font, id, c);
     }
 
     free(line);
@@ -627,30 +438,3 @@ bool load_font(struct font *font, const char *name)
     return true;
 }
 
-void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count)
-{
-    mesh->vertex_count = vertex_count;
-    mesh->index_count = index_count;
-
-    mesh->vertices = malloc(vertex_count * sizeof(struct vert_mesh));
-    mesh->indices = malloc(index_count * sizeof(GLuint));
-
-    mesh->texture = NULL;
-}
-
-void texture_free(struct texture *texture)
-{
-    glDeleteTextures(1, &texture->id);
-}
-
-void mesh_free(struct mesh *mesh)
-{
-    free(mesh->indices);
-    free(mesh->vertices);
-}
-
-void font_free(struct font *font)
-{
-    free(font->chars);
-    texture_free(&font->bitmap);
-}
