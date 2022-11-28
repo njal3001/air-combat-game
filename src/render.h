@@ -8,7 +8,6 @@
 #include "spatial.h"
 #include "transform.h"
 #include "camera.h"
-#include "vertex.h"
 
 bool render_init(GLFWwindow *window);
 void render_shutdown();
@@ -19,8 +18,8 @@ void mesh_instancing_begin(const struct mesh *mesh);
 void push_mesh_transform(const struct transform *transform);
 void mesh_instancing_end();
 
-void text_frame_begin();
-void text_frame_end();
+void ui_begin();
+void ui_end();
 void push_text(const char *str, float x, float y, float size);
 
 void untextured_frame_begin();
@@ -35,7 +34,5 @@ void push_line(struct vec3 a, struct vec3 b, float thickness, struct color col);
 void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2,
         struct vec3 p3, struct vec3 p4, struct vec3 p5, struct vec3 p6,
         struct vec3 p7, float thickness, struct color col);
-
-void render_speed_lines();
 
 struct camera *get_camera();

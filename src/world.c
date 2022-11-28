@@ -217,9 +217,7 @@ void world_render()
         untextured_frame_end();
     }
 
-    // render_speed_lines();
-
-    text_frame_begin();
+    ui_begin();
 
     char sscore[256];
     snprintf(sscore, 256, "Score: %lu\n", score);
@@ -230,7 +228,7 @@ void world_render()
         player_render_state_info(player);
     }
 
-    text_frame_end();
+    ui_end();
 }
 
 void world_free()

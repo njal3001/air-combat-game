@@ -15,10 +15,8 @@ enum menu_event menu_update()
 
 void menu_render()
 {
-    render_skybox();
-
-    text_frame_begin();
+    ui_begin();
     push_text(GAME_NAME, 585.0f, 780.0f, 2.0f);
     push_text("Press enter to begin", 650.0f, 600.0f, 1.0f);
-    text_frame_end();
+    ui_end();
 }

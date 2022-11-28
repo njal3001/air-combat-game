@@ -1,14 +1,11 @@
 #include "render.h"
-#include <stdbool.h>
-#include <stdio.h>
-#include <errno.h>
 #include <assert.h>
-#include <string.h>
 #include <math.h>
 #include "shader.h"
 #include "assets.h"
 #include "vertex.h"
 #include "texture.h"
+#include "log.h"
 
 #ifdef _WIN32
 #    define WIN32_LEAN_AND_MEAN
@@ -16,10 +13,6 @@
 #else
 #    define APIENTRY
 #endif
-
-// TODO: Should have separate maximums for each vao
-#define MAX_VERTICES 30000000
-#define MAX_INDICES 50000000
 
 #define NEAR 0.1f
 #define FAR 10000.0f
@@ -29,6 +22,12 @@
 #define MAX_MESH_VERTICES 10000
 #define MAX_MESH_INDICES 15000
 #define MAX_MESH_INSTANCES 30000
+
+#define MAX_UI_VERTICES 1000
+#define MAX_UI_INDICES 2000
+
+#define MAX_UNTEXTURED_VERTICES 30000000
+#define MAX_UNTEXTURED_INDICES 50000000
 
 #define SKYBOX_FOG_AMOUNT 0.8f
 #define FOG_START 3500.0f
@@ -44,14 +43,6 @@ struct vert_untextured
 {
     struct vec3 pos;
     struct color col;
-};
-
-struct render_frame
-{
-    void *vbo_map;
-    GLuint *ebo_map;
-    size_t vbo_count;
-    size_t ebo_count;
 };
 
 const float skybox_vertices[] =
@@ -99,46 +90,6 @@ const float skybox_vertices[] =
      1.0f, -1.0f,  1.0f
 };
 
-const float peffect_vertices[] =
-{
-    -1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f, 1.0f,
-    -1.0f, 1.0f, 1.0f,
-    1.0f, 1.0f, -1.0f,
-    -1.0f, -1.0f, -1.0f,
-    -1.0f, 1.0f, -1.0f,
-    1.0f, -1.0f, 1.0f,
-    -1.0f, -1.0f, -1.0f,
-    1.0f, -1.0f, -1.0f,
-    1.0f, 1.0f, -1.0f,
-    1.0f, -1.0f,-1.0f,
-    -1.0f, -1.0f,-1.0f,
-    -1.0f, -1.0f,-1.0f,
-    -1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f, -1.0f,
-    1.0f, -1.0f, 1.0f,
-    -1.0f, -1.0f, 1.0f,
-    -1.0f, -1.0f,-1.0f,
-    -1.0f, 1.0f, 1.0f,
-    -1.0f, -1.0f, 1.0f,
-    1.0f, -1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f,
-    1.0f, -1.0f, -1.0f,
-    1.0f, 1.0f, -1.0f,
-    1.0f, -1.0f,-1.0f,
-    1.0f, 1.0f, 1.0f,
-    1.0f, -1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f,
-    1.0f, 1.0f, -1.0f,
-    -1.0f, 1.0f, -1.0f,
-    1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f, -1.0f,
-    -1.0f, 1.0f, 1.0f,
-    1.0f, 1.0f, 1.0f,
-    -1.0f, 1.0f, 1.0f,
-    1.0f, -1.0f, 1.0f
-};
-
 struct mat4 projection;
 struct camera camera;
 
@@ -151,23 +102,29 @@ const struct mesh *instance_mesh;
 struct mat4 instancing_models[MAX_MESH_INSTANCES];
 size_t instance_count;
 
-struct vert_array skybox_vao;
+struct vao skybox_vao;
+struct vbo skybox_vbo;
 struct shader skybox_shader;
 struct cubemap skybox_map;
 
-struct vert_array text_vao;
-struct shader text_shader;
+struct vao ui_vao;
+struct vbo ui_vbo;
+struct ebo ui_ebo;
+struct shader ui_shader;
 struct font font;
+struct vert_ui ui_vertices[MAX_UI_VERTICES];
+GLuint ui_indices[MAX_UI_INDICES];
+size_t ui_vert_count;
+size_t ui_index_count;
 
-struct vert_array untextured_vao;
+struct vao untextured_vao;
+struct vbo untextured_vbo;
+struct ebo untextured_ebo;
 struct shader untextured_shader;
-
-struct vao peffect_vao;
-struct vbo peffect_vbo;
-struct shader spd_lines_shader;
-
-struct render_frame current_frame;
-const struct mesh *current_mesh;
+struct vert_untextured untextured_vertices[MAX_UNTEXTURED_VERTICES];
+GLuint untextured_indices[MAX_UNTEXTURED_INDICES];
+size_t untextured_vert_count;
+size_t untextured_index_count;
 
 struct color fog_color;
 
@@ -177,11 +134,6 @@ static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   const void *user_param);
 
 static void on_window_size_changed(GLFWwindow *window, int width, int height);
-
-static void render_frame_begin(const struct vert_array *vao,
-        const struct texture *texture,
-        const struct shader *shader);
-static void render_frame_end();
 
 bool render_init(GLFWwindow *window)
 {
@@ -227,14 +179,28 @@ bool render_init(GLFWwindow *window)
         .normalized = false,
         .divisor = 1,
     };
+    struct vert_attrib color_attrib =
+    {
+        .type = VTYPE_UBYTE4,
+        .normalized = true,
+        .divisor = 0,
+    };
+    struct vert_attrib ui_attrib =
+    {
+        .type = VTYPE_FLOAT4,
+        .normalized = false,
+        .divisor = 0,
+    };
 
     // Mesh rendering setup
     vao_init(&mesh_vao);
     vao_bind(&mesh_vao);
 
-    ebo_init(&mesh_ebo, MAX_MESH_INDICES, NULL, EBO_FORMAT_U32, BUFFER_DYNAMIC);
-    vbo_init(&mesh_vbo, MAX_MESH_VERTICES * sizeof(struct vert_mesh), NULL, BUFFER_DYNAMIC);
-    vbo_init(&mesh_model_vbo, MAX_MESH_INSTANCES * sizeof(struct mat4), NULL, BUFFER_DYNAMIC);
+    ebo_init(&mesh_ebo, MAX_MESH_INDICES, NULL, BUFFER_DYNAMIC);
+    vbo_init(&mesh_vbo, MAX_MESH_VERTICES * sizeof(struct vert_mesh),
+            NULL, BUFFER_DYNAMIC);
+    vbo_init(&mesh_model_vbo, MAX_MESH_INSTANCES * sizeof(struct mat4),
+            NULL, BUFFER_DYNAMIC);
 
     vao_set_ebo(&mesh_vao, &mesh_ebo);
     vao_add_vbo(&mesh_vao, &mesh_vbo, 2, pos_attrib, uv_attrib);
@@ -243,7 +209,8 @@ bool render_init(GLFWwindow *window)
     instance_mesh = NULL;
     instance_count = 0;
 
-    load_shader(&mesh_instancing_shader, "mesh_instance.vert", "mesh_instance.frag");
+    load_shader(&mesh_instancing_shader, "mesh_instance.vert",
+            "mesh_instance.frag");
     glUseProgram(mesh_instancing_shader.id);
     shader_set_int(&mesh_instancing_shader, "u_sampler", 0);
     shader_set_color(&mesh_instancing_shader, "u_fog_color", fog_color);
@@ -251,13 +218,11 @@ bool render_init(GLFWwindow *window)
     shader_set_float(&mesh_instancing_shader, "u_fog_end", FOG_END);
 
     // Skybox rendering setup
-    struct vert_array_data skybox_data;
-    skybox_data.vbo_size = 36;
-    skybox_data.ebo_size = 0;
-    skybox_data.vbo_data = skybox_vertices;
-    skybox_data.ebo_data = NULL;
-
-    vert_array_init(&skybox_vao, &skybox_data, VARRAY_STATIC, 1, pos_attrib);
+    vao_init(&skybox_vao);
+    vao_bind(&skybox_vao);
+    vbo_init(&skybox_vbo, sizeof(skybox_vertices), skybox_vertices,
+            BUFFER_STATIC);
+    vao_add_vbo(&skybox_vao, &skybox_vbo, 1, pos_attrib);
 
     load_shader(&skybox_shader, "skybox.vert", "skybox.frag");
     glUseProgram(skybox_shader.id);
@@ -277,59 +242,35 @@ bool render_init(GLFWwindow *window)
 
     load_cubemap(&skybox_map, skybox_faces);
 
-    // Text rendering setup
-    struct vert_array_data text_data;
-    text_data.vbo_size = MAX_VERTICES;
-    text_data.ebo_size = MAX_INDICES;
-    text_data.vbo_data = NULL;
-    text_data.ebo_data = NULL;
+    // UI rendering setup
+    vao_init(&ui_vao);
+    vao_bind(&ui_vao);
+    vbo_init(&ui_vbo, MAX_UI_VERTICES * sizeof(struct vert_ui), NULL,
+            BUFFER_DYNAMIC);
+    ebo_init(&ui_ebo, MAX_UI_INDICES, NULL, BUFFER_DYNAMIC);
 
-    struct vert_attrib text_attrib =
-    {
-        .type = VTYPE_FLOAT4,
-        .normalized = false,
-        .divisor = 0,
-    };
+    vao_set_ebo(&ui_vao, &ui_ebo);
+    vao_add_vbo(&ui_vao, &ui_vbo, 1, ui_attrib);
 
-    vert_array_init(&text_vao, &text_data, VARRAY_DYNAMIC, 1, text_attrib);
-
-    load_shader(&text_shader, "text.vert", "text.frag");
-    glUseProgram(text_shader.id);
-    shader_set_int(&text_shader, "u_bitmap", 0);
-    struct mat4 text_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
-    shader_set_mat4(&text_shader, "u_projection", &text_proj);
+    load_shader(&ui_shader, "text.vert", "text.frag");
+    glUseProgram(ui_shader.id);
+    shader_set_int(&ui_shader, "u_bitmap", 0);
+    struct mat4 ui_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
+    shader_set_mat4(&ui_shader, "u_projection", &ui_proj);
 
     load_font(&font, "vcr_osd_mono_regular_48.sfl");
 
     // Untextured rendering setup
-    struct vert_array_data untextured_data;
-    untextured_data.vbo_size = MAX_VERTICES;
-    untextured_data.ebo_size = MAX_INDICES;
-    untextured_data.vbo_data = NULL;
-    untextured_data.ebo_data = NULL;
+    vao_init(&untextured_vao);
+    vao_bind(&untextured_vao);
+    vbo_init(&untextured_vbo, MAX_UNTEXTURED_VERTICES, NULL, BUFFER_DYNAMIC);
+    ebo_init(&untextured_ebo, MAX_UNTEXTURED_INDICES, NULL, BUFFER_DYNAMIC);
 
-    struct vert_attrib color_attrib =
-    {
-        .type = VTYPE_UBYTE4,
-        .normalized = true,
-        .divisor = 0,
-    };
-
-    vert_array_init(&untextured_vao, &untextured_data, VARRAY_DYNAMIC, 2,
-        pos_attrib, color_attrib);
+    vao_set_ebo(&untextured_vao, &untextured_ebo);
+    vao_add_vbo(&untextured_vao, &untextured_vbo, 2,
+            pos_attrib, color_attrib);
 
     load_shader(&untextured_shader, "untextured.vert", "untextured.frag");
-    glUseProgram(untextured_shader.id);
-
-    // Particle effect setup
-    vao_init(&peffect_vao);
-    vao_bind(&peffect_vao);
-
-    vbo_init(&peffect_vbo, sizeof(peffect_vertices),
-            peffect_vertices, BUFFER_STATIC);
-    vao_add_vbo(&peffect_vao, &peffect_vbo, 1, pos_attrib);
-
-    load_shader(&spd_lines_shader, "spd_lines.vert", "spd_lines.frag");
 
     return true;
 }
@@ -342,76 +283,22 @@ void render_shutdown()
     vao_free(&mesh_vao);
     shader_free(&mesh_instancing_shader);
 
-    vbo_free(&peffect_vbo);
-    vao_free(&peffect_vao);
-    shader_free(&spd_lines_shader);
+    ebo_free(&ui_ebo);
+    vbo_free(&ui_vbo);
+    vao_free(&ui_vao);
+    shader_free(&ui_shader);
 
-    vert_array_free(&skybox_vao);
-    vert_array_free(&text_vao);
-    vert_array_free(&untextured_vao);
-    shader_free(&skybox_shader);
-    shader_free(&text_shader);
+    ebo_free(&untextured_ebo);
+    vbo_free(&untextured_vbo);
+    vao_free(&untextured_vao);
     shader_free(&untextured_shader);
+
+    vbo_free(&skybox_vbo);
+    vao_free(&skybox_vao);
+    shader_free(&skybox_shader);
 
     cubemap_free(&skybox_map);
     font_free(&font);
-}
-
-void render_frame_begin(const struct vert_array *vao,
-        const struct texture *texture, const struct shader *shader)
-{
-    assert(!current_frame.vbo_count);
-    assert(!current_frame.ebo_count);
-    assert(!current_frame.vbo_map);
-    assert(!current_frame.ebo_map);
-
-    if (texture)
-    {
-        glActiveTexture(GL_TEXTURE0);
-        glBindTexture(GL_TEXTURE_2D, texture->id);
-    }
-
-    glUseProgram(shader->id);
-
-    glBindVertexArray(vao->id);
-    glBindBuffer(GL_ARRAY_BUFFER, vao->vbo);
-
-    current_frame.vbo_map = glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
-    if (vao->ebo)
-    {
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, vao->ebo);
-        current_frame.ebo_map = glMapBuffer(GL_ELEMENT_ARRAY_BUFFER,
-                GL_WRITE_ONLY);
-    }
-}
-
-void render_frame_end()
-{
-    assert(current_frame.vbo_map);
-
-    glUnmapBuffer(GL_ARRAY_BUFFER);
-    if (current_frame.ebo_map)
-    {
-        glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
-    }
-
-    if (current_frame.vbo_count)
-    {
-        if (current_frame.ebo_map)
-        {
-            glDrawElements(GL_TRIANGLES, current_frame.ebo_count,
-                    GL_UNSIGNED_INT, (void*)NULL);
-        }
-        else
-        {
-            glDrawArrays(GL_TRIANGLES, 0, current_frame.vbo_count);
-        }
-    }
-
-    current_frame.vbo_count = 0;
-    current_frame.ebo_count = 0;
-    current_frame.ebo_map = NULL;
-    current_frame.vbo_map = NULL;
 }
 
 void render_skybox()
@@ -430,17 +317,6 @@ void render_skybox()
     glDrawArrays(GL_TRIANGLES, 0, 36);
 
     glDepthFunc(GL_LESS);
-}
-
-void render_speed_lines()
-{
-    vao_bind(&peffect_vao);
-
-    glUseProgram(spd_lines_shader.id);
-    struct mat4 model = mat4_translate(vec3_create(0.0f, 0.0f, -0.5f));
-    shader_set_mat4(&spd_lines_shader, "u_model", &model);
-
-    glDrawArrays(GL_TRIANGLES, 0, 36);
 }
 
 void mesh_instancing_begin(const struct mesh *mesh)
@@ -482,23 +358,38 @@ void mesh_instancing_end()
 
     if (instance_count)
     {
-        vbo_set_data(&mesh_model_vbo, instance_count * sizeof(struct mat4), instancing_models);
-        glDrawElementsInstanced(GL_TRIANGLES, instance_mesh->index_count, GL_UNSIGNED_INT, 0,
-                instance_count);
+        vbo_set_data(&mesh_model_vbo, instance_count * sizeof(struct mat4),
+                instancing_models);
+        glDrawElementsInstanced(GL_TRIANGLES, instance_mesh->index_count,
+                GL_UNSIGNED_INT, 0, instance_count);
     }
 
     instance_count = 0;
     instance_mesh = NULL;
 }
 
-void text_frame_begin()
+void ui_begin()
 {
-    render_frame_begin(&text_vao, &font.bitmap, &text_shader);
+    vao_bind(&ui_vao);
+    glUseProgram(ui_shader.id);
+
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, font.bitmap.id);
 }
 
-void text_frame_end()
+void ui_end()
 {
-    render_frame_end();
+    if (ui_vert_count && ui_index_count)
+    {
+        vbo_set_data(&ui_vbo, ui_vert_count * sizeof(struct vert_ui),
+                ui_vertices);
+        ebo_set_data(&ui_ebo, ui_index_count, ui_indices);
+        glDrawElements(GL_TRIANGLES, ui_index_count,
+                GL_UNSIGNED_INT, (void*)NULL);
+    }
+
+    ui_vert_count = 0;
+    ui_index_count = 0;
 }
 
 void push_text(const char *str, float x, float y, float size)
@@ -506,7 +397,7 @@ void push_text(const char *str, float x, float y, float size)
     float curx = x;
     float cury = y;
 
-    struct vert_ui *vmap = current_frame.vbo_map;
+    struct vert_ui *vert = ui_vertices + ui_vert_count;
 
     uint8_t c;
     while ((c = *str))
@@ -522,8 +413,8 @@ void push_text(const char *str, float x, float y, float size)
         }
 
         assert(c >= font.start_id && c < font.start_id + font.num_char);
-        assert(current_frame.vbo_count + 4 <= MAX_VERTICES);
-        assert(current_frame.ebo_count + 6 <= MAX_INDICES);
+        assert(ui_vert_count + 4 <= MAX_UI_VERTICES);
+        assert(ui_index_count + 6 <= MAX_UI_INDICES);
 
         struct fchar *fchar = font.chars + c - font.start_id;
         float x0 = curx + fchar->xoff * size;
@@ -536,52 +427,50 @@ void push_text(const char *str, float x, float y, float size)
         float uvy0 = (fchar->y + fchar->h) / (float)font.bitmap.height;
         float uvy1 = fchar->y / (float)font.bitmap.height;
 
-        vmap->x = x0;
-        vmap->y = y1;
-        vmap->uvx = uvx0;
-        vmap->uvy = uvy1;
-        vmap++;
+        vert->x = x0;
+        vert->y = y1;
+        vert->uvx = uvx0;
+        vert->uvy = uvy1;
+        vert++;
 
-        vmap->x = x0;
-        vmap->y = y0;
-        vmap->uvx = uvx0;
-        vmap->uvy = uvy0;
-        vmap++;
+        vert->x = x0;
+        vert->y = y0;
+        vert->uvx = uvx0;
+        vert->uvy = uvy0;
+        vert++;
 
-        vmap->x = x1;
-        vmap->y = y0;
-        vmap->uvx = uvx1;
-        vmap->uvy = uvy0;
-        vmap++;
+        vert->x = x1;
+        vert->y = y0;
+        vert->uvx = uvx1;
+        vert->uvy = uvy0;
+        vert++;
 
-        vmap->x = x1;
-        vmap->y = y1;
-        vmap->uvx = uvx1;
-        vmap->uvy = uvy1;
-        vmap++;
+        vert->x = x1;
+        vert->y = y1;
+        vert->uvx = uvx1;
+        vert->uvy = uvy1;
+        vert++;
 
-        current_frame.ebo_map[0] = current_frame.vbo_count;
-        current_frame.ebo_map[1] = current_frame.vbo_count + 1;
-        current_frame.ebo_map[2] = current_frame.vbo_count + 2;
-        current_frame.ebo_map[3] = current_frame.vbo_count;
-        current_frame.ebo_map[4] = current_frame.vbo_count + 2;
-        current_frame.ebo_map[5] = current_frame.vbo_count + 3;
+        GLuint *index = ui_indices + ui_index_count;
+        index[0] = ui_vert_count;
+        index[1] = ui_vert_count + 1;
+        index[2] = ui_vert_count + 2;
+        index[3] = ui_vert_count;
+        index[4] = ui_vert_count + 2;
+        index[5] = ui_vert_count + 3;
 
-        current_frame.vbo_count += 4;
-        current_frame.ebo_map += 6;
-        current_frame.ebo_count += 6;
+        ui_vert_count += 4;
+        ui_index_count += 6;
 
         curx += fchar->adv * size;
         str++;
     }
-
-    current_frame.vbo_map = vmap;
 }
 
 void untextured_frame_begin()
 {
-    render_frame_begin(&untextured_vao, NULL, &untextured_shader);
-
+    vao_bind(&untextured_vao);
+    glUseProgram(untextured_shader.id);
     struct mat4 view = camera_view(&camera);
     shader_set_mat4(&untextured_shader, "u_view", &view);
     shader_set_mat4(&untextured_shader, "u_projection", &projection);
@@ -589,47 +478,63 @@ void untextured_frame_begin()
 
 void untextured_frame_end()
 {
-    render_frame_end();
+    if (untextured_vert_count && untextured_index_count)
+    {
+        vbo_set_data(&untextured_vbo,
+                untextured_vert_count * sizeof(struct vert_untextured),
+                untextured_vertices);
+
+        ebo_set_data(&untextured_ebo, untextured_index_count,
+                untextured_indices);
+
+        glDrawElements(GL_TRIANGLES, untextured_index_count,
+                GL_UNSIGNED_INT, (void*)NULL);
+    }
+
+    untextured_vert_count = 0;
+    untextured_index_count = 0;
 }
 
-void push_quad(struct vec3 a, struct vec3 b, struct vec3 c, struct vec3 d, struct color col)
+void push_quad(struct vec3 a, struct vec3 b, struct vec3 c,
+        struct vec3 d, struct color col)
 {
-    assert(current_frame.vbo_count + 4 <= MAX_VERTICES);
-    assert(current_frame.ebo_count + 6 <= MAX_INDICES);
+    assert(untextured_vert_count + 4 <= MAX_UNTEXTURED_VERTICES);
+    assert(untextured_index_count + 6 <= MAX_UNTEXTURED_INDICES);
 
-    struct vert_untextured *vmap = current_frame.vbo_map;
+    struct vert_untextured *vert = untextured_vertices + untextured_vert_count;
 
-    vmap->pos = a;
-    vmap->col = col;
-    vmap++;
+    vert->pos = a;
+    vert->col = col;
+    vert++;
 
-    vmap->pos = b;
-    vmap->col = col;
-    vmap++;
+    vert->pos = b;
+    vert->col = col;
+    vert++;
 
-    vmap->pos = c;
-    vmap->col = col;
-    vmap++;
+    vert->pos = c;
+    vert->col = col;
+    vert++;
 
-    vmap->pos = d;
-    vmap->col = col;
-    vmap++;
+    vert->pos = d;
+    vert->col = col;
+    vert++;
 
-    current_frame.ebo_map[0] = current_frame.vbo_count;
-    current_frame.ebo_map[1] = current_frame.vbo_count + 1;
-    current_frame.ebo_map[2] = current_frame.vbo_count + 2;
-    current_frame.ebo_map[3] = current_frame.vbo_count;
-    current_frame.ebo_map[4] = current_frame.vbo_count + 2;
-    current_frame.ebo_map[5] = current_frame.vbo_count + 3;
+    GLuint *index = untextured_indices + untextured_index_count;
 
-    current_frame.vbo_count += 4;
-    current_frame.ebo_map += 6;
-    current_frame.ebo_count += 6;
-    current_frame.vbo_map = vmap;
+    index[0] = untextured_vert_count;
+    index[1] = untextured_vert_count + 1;
+    index[2] = untextured_vert_count + 2;
+    index[3] = untextured_vert_count;
+    index[4] = untextured_vert_count + 2;
+    index[5] = untextured_vert_count + 3;
+
+    untextured_vert_count += 4;
+    untextured_index_count += 6;
 }
 
 void push_volume(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct vec3 p3,
-        struct vec3 p4, struct vec3 p5, struct vec3 p6, struct vec3 p7, struct color col)
+        struct vec3 p4, struct vec3 p5, struct vec3 p6, struct vec3 p7,
+        struct color col)
 {
     // Near
     push_quad(p0, p1, p2, p3, col);
@@ -804,14 +709,14 @@ void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
 
     if (type == GL_DEBUG_TYPE_ERROR)
     {
-        printf("GL (%s:%s) %s\n", type_name, severity_name, message);
+        log_info("GL (%s:%s) %s", type_name, severity_name, message);
     }
     else if (severity != GL_DEBUG_SEVERITY_NOTIFICATION)
     {
-        printf("GL (%s:%s) %s\n", type_name, severity_name, message);
+        log_info("GL (%s:%s) %s\n", type_name, severity_name, message);
     }
     else
     {
-        printf("GL (%s) %s\n", type_name, message);
+        log_info("GL (%s) %s", type_name, message);
     }
 }

@@ -9,6 +9,7 @@ uint32_t ticks;
 uint32_t fps_ticks;
 uint32_t fps_ticks_next;
 float sec_acummulator;
+float elapsed;
 
 void timer_init()
 {
@@ -19,6 +20,8 @@ void timer_preupdate()
 {
     time_prev = time_now;
     time_now = glfwGetTime();
+
+    elapsed += timer_delta();
 }
 
 void timer_postupdate()
@@ -42,6 +45,11 @@ float timer_delta()
 uint32_t timer_ticks()
 {
     return ticks;
+}
+
+float timer_elapsed()
+{
+    return elapsed;
 }
 
 uint32_t timer_fps()

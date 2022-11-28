@@ -305,10 +305,13 @@ bool read_polygon(const char *name, struct mesh *mesh)
 bool load_shader(struct shader *shader, const char *vert_name,
         const char *frag_name)
 {
+    log_info("Loading shader: %s, %s", vert_name, frag_name);
+
     load_asset_path(ASSET_SHADER, vert_name);
     char *vert_str = read_file(asset_path);
     if (!vert_str)
     {
+        log_err("Could not read vertex file: %s", vert_name);
         return false;
     }
 
@@ -316,6 +319,7 @@ bool load_shader(struct shader *shader, const char *vert_name,
     char *frag_str = read_file(asset_path);
     if (!frag_str)
     {
+        log_err("Could not read fragment shader file: %s", frag_name);
         free(vert_str);
         return false;
     }

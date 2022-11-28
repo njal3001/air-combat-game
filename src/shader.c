@@ -1,4 +1,5 @@
 #include "shader.h"
+#include "log.h"
 #include <stdio.h>
 
 static GLuint shader_get_location(struct shader *shader, const char *name);
@@ -18,7 +19,7 @@ bool shader_init(struct shader *shader, const char *vert_str, const char *frag_s
     if (!success)
     {
         glGetShaderInfoLog(vert_id, 512, NULL, shader_error_msg);
-        printf("Error! Vertex shader compilation failed!\n%s", shader_error_msg);
+        log_err("Vertex shader compilation failed!\n%s", shader_error_msg);
         return false;
     }
 
@@ -32,7 +33,7 @@ bool shader_init(struct shader *shader, const char *vert_str, const char *frag_s
     if (!success)
     {
         glGetShaderInfoLog(frag_id, 512, NULL, shader_error_msg);
-        printf("Error! Fragment shader compilation failed!\n%s", shader_error_msg);
+        log_err("Fragment shader compilation failed!\n%s", shader_error_msg);
         glDeleteShader(vert_id);
         return false;
     }
@@ -51,7 +52,7 @@ bool shader_init(struct shader *shader, const char *vert_str, const char *frag_s
     if (!success)
     {
         glGetProgramInfoLog(shader->id, 512, NULL, shader_error_msg);
-        printf("Error! Shader linking failed!\n%s", shader_error_msg);
+        log_err("Shader linking failed!\n%s", shader_error_msg);
         return false;
     }
 
@@ -59,7 +60,6 @@ bool shader_init(struct shader *shader, const char *vert_str, const char *frag_s
 
     return true;
 }
-
 
 void shader_free(struct shader *shader)
 {
