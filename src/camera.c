@@ -11,6 +11,12 @@ struct mat4 camera_view(const struct camera *camera)
     return mat4_lookat(camera->transform.pos, cam_target, cam_up);
 }
 
+struct mat4 camera_projection(const struct camera *camera)
+{
+    return mat4_perspective(camera->fov, camera->aspect,
+            camera->near, camera->far);
+}
+
 void camera_free_update(struct camera *camera)
 {
     const float rotation_speed = 0.035f;

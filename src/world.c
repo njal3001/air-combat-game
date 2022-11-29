@@ -10,6 +10,7 @@
 #include "audio.h"
 #include "timer.h"
 #include "calc.h"
+#include "particle.h"
 
 #define MAX_ACTORS 20000
 
@@ -19,15 +20,7 @@
 
 #define CHUNK_SPAN 2
 
-struct projectile_data
-{
-    float ttl;
-    float speed;
-};
-
 struct mesh player_mesh;
-struct mesh projectile_mesh;
-
 const struct mesh *asteroid_mesh;
 
 struct asteroid_data
@@ -62,7 +55,8 @@ static void world_render_type(enum actor_type type);
 static void projectile_update(struct actor *ac, float dt);
 static void projectile_render(struct actor *ac);
 
-static struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir, size_t size, float speed);
+static struct actor *spawn_asteroid(struct vec3 pos, struct vec3 dir,
+        size_t size, float speed);
 static void asteroid_update(struct actor *ac, float dt);
 static void asteroid_render(struct actor *ac);
 
@@ -72,14 +66,8 @@ static struct ivec3 world_to_chunk_pos(struct vec3 wpos);
 static void world_gen_init();
 static void world_gen_update();
 
-static bool check_item_out_of_range(const struct actor *ac, float max_dist);
-
-
 void world_init()
 {
-    projectile_mesh = create_quad_mesh();
-    projectile_mesh.texture = get_texture("lasers/11.png");
-
     player_mesh = create_cube_mesh();
     player_mesh.texture = get_texture("rusted_metal.jpg");
 
@@ -99,7 +87,6 @@ void world_start()
 
     player = spawn_player(VEC3_ZERO);
     world_gen_init();
-
 }
 
 void world_update(float dt)
@@ -151,6 +138,32 @@ void world_update(float dt)
     }
 
     score++;
+
+    /*
+    if (player)
+    {
+        struct camera *cam = get_camera();
+        float pspeed = player_speed(player);
+
+        float fov_mult = 1.0f + pspeed / 12000.0f;
+        cam->fov = (M_PI / 6.0f) * fov_mult;
+
+        float lspeed = pspeed / 500.0f + 10.0f;
+        size_t lcount = pspeed / 30 + 10;
+        float loff = fmax(2.5f, 8.0f - pspeed / 2000.0f);
+
+        struct vec3 spd_lines_pos = vec3_add(cam->transform.pos,
+                vec3_mul(transform_forward(&cam->transform), 10.0f));
+        struct mat4 spd_lines_rot = cam->transform.rot;
+
+        speed_lines_update_and_render(lcount, 0.25f, lspeed, 1.0f,
+                loff, spd_lines_pos, spd_lines_rot, dt);
+
+        float shake = pspeed / 1000;
+        struct vec3 shake_off = vec3_mul(vec3_rand(), shake);
+        vec3_add_eq(&cam->transform.pos, shake_off);
+    }
+    */
 }
 
 void world_render_type(enum actor_type type)
@@ -183,12 +196,12 @@ void world_render()
     // render_skybox();
 
     // TODO: Should not use instancing for small groups of meshes
-    if (player)
-    {
-        mesh_instancing_begin(&player_mesh);
-        push_mesh_transform(&player->transform);
-        mesh_instancing_end();
-    }
+    // if (player)
+    // {
+    //     mesh_instancing_begin(&player_mesh);
+    //     push_mesh_transform(&player->transform);
+    //     mesh_instancing_end();
+    // }
 
     mesh_instancing_begin(asteroid_mesh);
     world_render_type(ACTOR_TYPE_ASTEROID);
@@ -233,7 +246,6 @@ void world_render()
 
 void world_free()
 {
-    mesh_free(&projectile_mesh);
     mesh_free(&player_mesh);
 }
 

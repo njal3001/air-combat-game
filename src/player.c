@@ -94,6 +94,12 @@ void player_death(struct actor *ac)
     world_end();
 }
 
+float player_speed(struct actor *ac)
+{
+    struct player_data *data = ac->data;
+    return data->spd;
+}
+
 void player_render_state_info(struct actor *ac)
 {
     struct player_data *data = ac->data;

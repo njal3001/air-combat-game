@@ -56,6 +56,8 @@ add_executable(air-combat
     src/mesh.c
     src/font.h
     src/font.c
+    src/particle.h
+    src/particle.c
 )
 
 include_directories(. ${GLEW_INCLUDE_DIRS})

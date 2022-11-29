@@ -90,7 +90,6 @@ const float skybox_vertices[] =
      1.0f, -1.0f,  1.0f
 };
 
-struct mat4 projection;
 struct camera camera;
 
 struct vao mesh_vao;
@@ -157,8 +156,12 @@ bool render_init(GLFWwindow *window)
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
-    projection = mat4_perspective(FOV, ASPECT_RATIO, NEAR, FAR);
     camera.transform = transform_create(VEC3_ZERO);
+    camera.fov = FOV;
+    camera.aspect = ASPECT_RATIO;
+    camera.near = NEAR;
+    camera.far = FAR;
+
     fog_color = color_create(0, 0, 0, 255);
 
     struct vert_attrib pos_attrib =
@@ -304,13 +307,14 @@ void render_shutdown()
 void render_skybox()
 {
     struct mat4 skybox_view = mat4_remove_translation(camera_view(&camera));
+    struct mat4 proj = camera_projection(&camera);
 
     // Change depth function to draw skybox behind all other objects
     glDepthFunc(GL_LEQUAL);
 
     glUseProgram(skybox_shader.id);
     shader_set_mat4(&skybox_shader, "u_view", &skybox_view);
-    shader_set_mat4(&skybox_shader, "u_projection", &projection);
+    shader_set_mat4(&skybox_shader, "u_projection", &proj);
 
     glBindVertexArray(skybox_vao.id);
     glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_map.id);
@@ -338,8 +342,9 @@ void mesh_instancing_begin(const struct mesh *mesh)
 
     glUseProgram(mesh_instancing_shader.id);
     struct mat4 view = camera_view(&camera);
+    struct mat4 proj = camera_projection(&camera);
     shader_set_mat4(&mesh_instancing_shader, "u_view", &view);
-    shader_set_mat4(&mesh_instancing_shader, "u_projection", &projection);
+    shader_set_mat4(&mesh_instancing_shader, "u_projection", &proj);
     shader_set_vec3(&mesh_instancing_shader, "u_view_pos", camera.transform.pos);
 }
 
@@ -472,8 +477,9 @@ void untextured_frame_begin()
     vao_bind(&untextured_vao);
     glUseProgram(untextured_shader.id);
     struct mat4 view = camera_view(&camera);
+    struct mat4 proj = camera_projection(&camera);
     shader_set_mat4(&untextured_shader, "u_view", &view);
-    shader_set_mat4(&untextured_shader, "u_projection", &projection);
+    shader_set_mat4(&untextured_shader, "u_projection", &proj);
 }
 
 void untextured_frame_end()
