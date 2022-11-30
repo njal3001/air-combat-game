@@ -36,3 +36,8 @@ int sign(int val)
 {
     return val < 0 ? -1 : 1;
 }
+
+int min(int a, int b)
+{
+    return a < b ? a : b;
+}

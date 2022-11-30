@@ -1,19 +1,30 @@
 #pragma once
 #include "actor.h"
 
-void world_init();
-void world_start();
-void world_update(float dt);
-void world_render();
-void world_end();
-bool world_ended();
-void world_free();
+#define MAX_ACTORS 20000
 
-void toggle_collider_rendering();
+struct world
+{
+    struct actor *player;
+    struct actor actors[MAX_ACTORS];
+    uint16_t num_actors;
+    uint8_t tick;
+    bool show_colliders;
+};
 
-struct actor *new_actor();
-void actor_hurt(struct actor *ac, float dmg);
+void world_init(struct world *w);
+void world_free(struct world *w);
 
-struct actor *first_collide(const struct actor *ac, int type_mask);
+void world_start(struct world *w);
+void world_update(struct world *w, float dt);
+void world_render(struct world *w);
 
-struct actor *spawn_projectile(struct vec3 pos, float speed);
+bool world_ended(const struct world *w);
+
+struct actor *new_actor(struct world *w, struct vec3 pos,
+        enum actor_type type);
+struct actor *first_collide(struct world *w, const struct actor *ac,
+        int type_mask);
+
+void toggle_collider_rendering(struct world *w);
+

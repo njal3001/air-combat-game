@@ -68,7 +68,9 @@ void game_run()
 {
     audio_mute();
 
-    world_init();
+    struct world world;
+
+    world_init(&world);
     audio_play("outthere.wav");
 
     timer_init();
@@ -90,7 +92,7 @@ void game_run()
                 if (mevent == MENU_EVENT_PLAY)
                 {
                     state = GSTATE_PLAY;
-                    world_start();
+                    world_start(&world);
                 }
 
                 menu_render();
@@ -105,7 +107,7 @@ void game_run()
                 }
                 else if (key_pressed(GLFW_KEY_F10))
                 {
-                    toggle_collider_rendering();
+                    toggle_collider_rendering(&world);
                 }
 
                 if (camera_free)
@@ -114,10 +116,10 @@ void game_run()
                 }
                 else
                 {
-                    world_update(dt);
+                    world_update(&world, dt);
                 }
 
-                world_render();
+                world_render(&world);
 
                 static char dinfo[256];
                 snprintf(dinfo, 256, "Frame time: %fms\nFPS: %d\n",
@@ -127,7 +129,7 @@ void game_run()
                 push_text(dinfo, 1550.0f, 1060.0f, 0.4f);
                 ui_end();
 
-                if (world_ended())
+                if (world_ended(&world))
                 {
                     state = GSTATE_MENU;
                 }
@@ -142,7 +144,7 @@ void game_run()
         timer_postupdate();
     }
 
-    world_free();
+    world_free(&world);
 }
 
 void game_shutdown()

@@ -1,21 +1,17 @@
 #pragma once
 #include <stdlib.h>
+#include <stdint.h>
 #include "transform.h"
 
 enum actor_type
 {
-    ACTOR_TYPE_PLAYER =         1 << 0,
-    ACTOR_TYPE_ASTEROID =       1 << 1,
+    ACTOR_TYPE_PLAYER = 1 << 0,
 };
 
 enum
 {
     ACTOR_DEAD = 1 << 0,
 };
-
-struct actor;
-typedef void (*ac_update)(struct actor *ac, float dt);
-typedef void (*ac_death)(struct actor *ac);
 
 struct cbox
 {
@@ -25,15 +21,16 @@ struct cbox
 
 struct actor
 {
-    size_t id;
+    uint16_t id;
     struct transform transform;
-    void *data;
-    float hp;
     struct cbox cbox;
     int flags;
     enum actor_type type;
-    size_t spawn_tick;
-    ac_update update;
-    ac_death death;
+    uint8_t spawn_tick;
+    void *data;
 };
 
+void actor_init(struct actor *ac, uint16_t id, enum actor_type type,
+        uint8_t spawn_tick, struct vec3 pos);
+
+void actor_free(struct actor *ac);

@@ -48,6 +48,7 @@ add_executable(air-combat
     src/vertex.h
     src/vertex.c
     src/actor.h
+    src/actor.c
     src/color.h
     src/color.c
     src/texture.h

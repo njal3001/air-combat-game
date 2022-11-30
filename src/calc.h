@@ -7,3 +7,4 @@ float frand();
 float frandrange(float min, float max);
 
 int sign(int val);
+int min(int a, int b);

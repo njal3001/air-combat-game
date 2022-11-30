@@ -1,5 +1,4 @@
 #include "input.h"
-#include <stdio.h>
 #include <assert.h>
 
 #define ASSERT_KEY(k) assert((k) > 0 && (k) <= GLFW_KEY_LAST)
