@@ -1,5 +1,5 @@
 #include "audio.h"
-#include "assets.h"
+#include "asset.h"
 #include "log.h"
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -23,9 +23,9 @@ void audio_shutdown()
     ma_engine_uninit(&engine);
 }
 
-void audio_play(const char *name)
+void audio_play(enum asset_audio handle)
 {
-    const char *path = get_asset_path(ASSET_OTHER, name);
+    const char *path = get_audio_path(handle);
     ma_result res = ma_engine_play_sound(&engine, path, NULL);
     if (res != MA_SUCCESS)
     {

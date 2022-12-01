@@ -4,9 +4,9 @@
 #include "input.h"
 #include "calc.h"
 
-#define SPD_START 1000.0f
-#define SPD_MAX 8000.0f
-#define ACCEL_START 100.0f
+#define SPD_START 10.0f
+#define SPD_MAX 100.0f
+#define ACCEL_START 10.0f
 #define ANG_ACCEL 3.0f
 #define ANG_SPD_MAX 1.0f
 
@@ -63,9 +63,9 @@ void player_update(struct actor *ac, float dt)
     transform_local_roty(&ac->transform, data->ang_spdy * dt);
 
     // Acceleration decreases as speed increases
-    float accel = ((SPD_MAX - data->spd) / (SPD_MAX - SPD_START)) *
-        ACCEL_START;
-    data->spd += accel * dt;
+    // float accel = ((SPD_MAX - data->spd) / (SPD_MAX - SPD_START)) *
+    //     ACCEL_START;
+    // data->spd += accel * dt;
     vec3_add_eq(&ac->transform.pos, vec3_mul(fwd, data->spd * dt));
 }
 

@@ -1,9 +1,17 @@
 #include "world.h"
 #include <assert.h>
 #include <string.h>
+#include "render.h"
 #include "player.h"
+#include "orb.h"
 #include "collide.h"
 #include "calc.h"
+
+struct render_spec
+{
+    const struct mesh *mesh;
+    const struct shader *shader;
+};
 
 struct actor_iter
 {
@@ -73,6 +81,12 @@ void world_start(struct world *w)
     w->tick = 0;
 
     w->player = spawn_player(w, VEC3_ZERO);
+
+    for (size_t i = 0; i < 100; i++)
+    {
+        struct vec3 pos = vec3_randrange(20.0f, 100.0f);
+        spawn_orb(w, pos);
+    }
 }
 
 void world_update(struct world *w, float dt)
@@ -101,6 +115,9 @@ void world_update(struct world *w, float dt)
             {
                 case ACTOR_TYPE_PLAYER:
                     player_update(ac, dt);
+                    break;
+                case ACTOR_TYPE_ORB:
+                    orb_update(ac, dt);
                     break;
             }
         }
@@ -161,12 +178,22 @@ struct actor *new_actor(struct world *w, struct vec3 pos,
     assert(w->num_actors < MAX_ACTORS);
 
     uint16_t new_id = find_free_actor(w);
-    struct actor *new_ac = w->actors + new_id - 1;
+    struct actor *new_ac = get_actor(w, new_id);
 
     actor_init(new_ac, new_id, type, w->tick, pos);
     w->num_actors++;
 
     return new_ac;
+}
+
+struct actor *get_actor(struct world *w, uint16_t id)
+{
+    if (!id)
+    {
+        return NULL;
+    }
+
+    return w->actors + id - 1;
 }
 
 struct actor *first_collide(struct world *w, const struct actor *ac,

@@ -6,6 +6,7 @@
 enum actor_type
 {
     ACTOR_TYPE_PLAYER = 1 << 0,
+    ACTOR_TYPE_ORB = 1 << 1,
 };
 
 enum

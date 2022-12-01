@@ -1,4 +1,4 @@
-#include "assets.h"
+#include "asset.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include "string.h"
@@ -13,13 +13,14 @@
 
 #define MAX_ASSET_PATH 512
 
-struct hashmap *textures;
-struct hashmap *meshes;
-
 char asset_path[MAX_ASSET_PATH];
 size_t root_length;
 
-static bool read_polygon(const char *name, struct mesh *mesh);
+struct texture textures[ASSET_TEXTURE_END];
+struct mesh meshes[ASSET_MESH_END];
+struct shader shaders[ASSET_SHADER_END];
+struct font fonts[ASSET_FONT_END];
+char *audio_paths[ASSET_AUDIO_END];
 
 static void load_asset_path(enum asset_type type, const char *name)
 {
@@ -29,10 +30,10 @@ static void load_asset_path(enum asset_type type, const char *name)
     // Select directory
     switch (type)
     {
-        case ASSET_SHADER:
+        case ASSET_TYPE_SHADER:
             strcat(asset_path, "src/shaders/");
             break;
-        case ASSET_OTHER:
+        default:
             strcat(asset_path, "assets/");
             break;
     }
@@ -41,167 +42,36 @@ static void load_asset_path(enum asset_type type, const char *name)
     strncat(asset_path, name, MAX_ASSET_PATH - root_length);
 }
 
-void assets_init()
+static bool load_texture(enum asset_texture handle, const char *name)
 {
-    // Find root path
-    get_exec_path(asset_path, MAX_ASSET_PATH);
-    get_dir_path(asset_path, 1);
-    root_length = strlen(asset_path);
+    struct texture *tex = textures + handle;
 
-    textures = hashmap_new();
-    meshes = hashmap_new();
-}
-
-void assets_free()
-{
-    size_t num_textures = hashmap_size(textures);
-    if (num_textures)
-    {
-        struct texture **t = malloc(num_textures * sizeof(void*));
-        hashmap_values(textures, (void**)t);
-        for (size_t i = 0; i < num_textures; i++)
-        {
-            texture_free(t[i]);
-            free(t[i]);
-        }
-
-        free(t);
-    }
-
-    size_t num_meshes = hashmap_size(meshes);
-    if (num_meshes)
-    {
-        struct mesh **m = malloc(num_meshes * sizeof(void*));
-        hashmap_values(meshes, (void**)m);
-        for (size_t i = 0; i < num_meshes; i++)
-        {
-            mesh_free(m[i]);
-            free(m[i]);
-        }
-
-        free(m);
-    }
-
-    hashmap_free(meshes);
-    hashmap_free(textures);
-}
-
-const char *get_asset_path(enum asset_type type, const char *name)
-{
-    load_asset_path(type, name);
-    return asset_path;
-}
-
-const struct texture *get_texture(const char *name)
-{
-    struct texture *cached_tex = hashmap_get(textures, name);
-    if (cached_tex)
-    {
-        return cached_tex;
-    }
-
-    load_asset_path(ASSET_OTHER, name);
+    load_asset_path(ASSET_TYPE_TEXTURE, name);
 
     struct image img;
-    img.data = stbi_load(asset_path, &img.width, &img.height, &img.channels, 0);
-
+    img.data = stbi_load(asset_path, &img.width, &img.height,
+            &img.channels, 0);
     if (!img.data)
     {
-        return NULL;
+        log_err("Could not load texture %s", name);
+        return false;
     }
 
-    struct texture *tex = malloc(sizeof(struct texture));
     texture_init(tex, &img);
 
     stbi_image_free(img.data);
-
-    hashmap_put(textures, name, tex);
-    return tex;
+    return true;
 }
 
-const struct mesh *get_mesh(const char *name)
+static bool load_mesh(enum asset_mesh handle, const char *name)
 {
-    struct mesh *cached_mesh = hashmap_get(meshes, name);
-    if (cached_mesh)
-    {
-        return cached_mesh;
-    }
+    struct mesh *mesh = meshes + handle;
 
-    log_info("Loading mesh: %s", name);
-
-    load_asset_path(ASSET_OTHER, name);
-
-    FILE *f_mesh = fopen(asset_path, "r");
-    if (!f_mesh)
-    {
-        log_warn("Could not open file %s", asset_path);
-        return NULL;
-    }
-
-    struct mesh *mesh = malloc(sizeof(struct mesh));
-    mesh->indices = NULL;
-    mesh->vertices = NULL;
-    mesh->texture = NULL;
-
-    char *line = NULL;
-    size_t blength = 0;
-    int read;
-    char *word;
-
-    while ((read = getline(&line, &blength, f_mesh)) != -1)
-    {
-        if (!read)
-        {
-            continue;
-        }
-
-        line[strcspn(line, "\n")] = '\0';
-        word = strtok(line, " ");
-
-        if (strcmp(word, "model") == 0)
-        {
-            word = strtok(NULL, " ");
-            bool model_success = read_polygon(word, mesh);
-            if (!model_success)
-            {
-                log_warn("Could not load model");
-                free(line);
-                fclose(f_mesh);
-                mesh_free(mesh);
-                return NULL;
-            }
-        }
-        else if (strcmp(word, "texture") == 0)
-        {
-            word = strtok(NULL, " ");
-            mesh->texture = get_texture(word);
-            if (!mesh->texture)
-            {
-                log_warn("Could not load texture");
-                free(line);
-                fclose(f_mesh);
-                mesh_free(mesh);
-                return NULL;
-            }
-        }
-    }
-
-    free(line);
-    fclose(f_mesh);
-
-    hashmap_put(meshes, name, mesh);
-    return mesh;
-}
-
-bool read_polygon(const char *name, struct mesh *mesh)
-{
-    log_info("Loading polygon: %s", name);
-
-    load_asset_path(ASSET_OTHER, name);
+    load_asset_path(ASSET_TYPE_MESH, name);
     FILE *f = fopen(asset_path, "r");
     if (!f)
     {
-        log_warn("Could not open file %s", asset_path);
+        log_warn("Could not load mesh %s", name);
         return false;
     }
 
@@ -301,21 +171,20 @@ bool read_polygon(const char *name, struct mesh *mesh)
     return true;
 }
 
-
-bool load_shader(struct shader *shader, const char *vert_name,
+static bool load_shader(enum asset_shader handle, const char *vert_name,
         const char *frag_name)
 {
-    log_info("Loading shader: %s, %s", vert_name, frag_name);
+    struct shader *shader = shaders + handle;
 
-    load_asset_path(ASSET_SHADER, vert_name);
+    load_asset_path(ASSET_TYPE_SHADER, vert_name);
     char *vert_str = read_file(asset_path);
     if (!vert_str)
     {
-        log_err("Could not read vertex file: %s", vert_name);
+        log_err("Could not read vertex shader file: %s", vert_name);
         return false;
     }
 
-    load_asset_path(ASSET_SHADER, frag_name);
+    load_asset_path(ASSET_TYPE_SHADER, frag_name);
     char *frag_str = read_file(asset_path);
     if (!frag_str)
     {
@@ -325,6 +194,10 @@ bool load_shader(struct shader *shader, const char *vert_name,
     }
 
     bool success = shader_init(shader, vert_str, frag_str);
+    if (!success)
+    {
+        log_err("Failed to load shader (%s, %s)", vert_name, frag_name);
+    }
 
     free(vert_str);
     free(frag_str);
@@ -332,47 +205,16 @@ bool load_shader(struct shader *shader, const char *vert_name,
     return success;
 }
 
-bool load_cubemap(struct cubemap *cmap, const char *const *face_names)
+static bool load_font(enum asset_font handle, const char *name)
 {
-    struct image faces[6];
+    struct font *font = fonts + handle;
 
-    for (size_t i = 0; i < 6; i++)
-    {
-        load_asset_path(ASSET_OTHER, face_names[i]);
-        struct image *face = faces + i;
-        face->data = stbi_load(asset_path, &face->width, &face->height,
-                &face->channels, 0);
-        if (!face->data)
-        {
-            log_warn("Could not load cubemap face %s", face_names[i]);
-            for (size_t j = 0; j < i; j++)
-            {
-                stbi_image_free(faces[j].data);
-            }
-
-            return false;
-        }
-    }
-
-    cubemap_init(cmap, faces);
-
-    for (size_t i = 0; i < 6; i++)
-    {
-        stbi_image_free(faces[i].data);
-    }
-
-    return true;
-}
-
-bool load_font(struct font *font, const char *name)
-{
-    log_info("Loading font: %s", name);
-
-    load_asset_path(ASSET_OTHER, name);
+    load_asset_path(ASSET_TYPE_FONT, name);
     FILE *f = fopen(asset_path, "r");
     if (!f)
     {
-        log_warn("Could not open file %s", asset_path);
+        log_err("Failed to load font %s. Could not open file %s", name,
+                asset_path);
         return false;
     }
 
@@ -397,13 +239,14 @@ bool load_font(struct font *font, const char *name)
     // Bitmap
     getline(&line, &blength, f);
     line[strcspn(line, "\n")] = '\0';
-    load_asset_path(ASSET_OTHER, line);
+    load_asset_path(ASSET_TYPE_TEXTURE, line);
 
     img.data = stbi_load(asset_path, &img.width, &img.height,
             &img.channels, 0);
     if (!img.data)
     {
-        log_warn("Could not open file %s", asset_path);
+        log_warn("Failed to load font %s. Could not load bitmap %s", name,
+                asset_path);
         free(line);
         return false;
     }
@@ -442,3 +285,91 @@ bool load_font(struct font *font, const char *name)
     return true;
 }
 
+static void load_audio_path(enum asset_audio handle, const char *name)
+{
+    load_asset_path(ASSET_TYPE_AUDIO, name);
+    size_t n = strlen(asset_path) + 1;
+
+    audio_paths[handle] = malloc(sizeof(char) * n);
+    memcpy(audio_paths[handle], asset_path, n);
+}
+
+void assets_init()
+{
+    // Find root path
+    get_exec_path(asset_path, MAX_ASSET_PATH);
+    get_dir_path(asset_path, 1);
+    root_length = strlen(asset_path);
+
+    // Textures
+    load_texture(ASSET_TEXTURE_METAL, "rusted_metal.jpg");
+
+    // Meshes
+    meshes[ASSET_MESH_PLAYER] = create_cube_mesh();
+    meshes[ASSET_MESH_PLAYER].texture = get_texture(ASSET_TEXTURE_METAL);
+
+    meshes[ASSET_MESH_ORB] = create_cube_mesh();
+    meshes[ASSET_MESH_ORB].texture = get_texture(ASSET_TEXTURE_METAL);
+
+    // Shaders
+    load_shader(ASSET_SHADER_MESH, "mesh_instance.vert",
+            "mesh_instance.frag");
+    load_shader(ASSET_SHADER_UI, "text.vert", "text.frag");
+    load_shader(ASSET_SHADER_UNTEXTURED, "untextured.vert",
+            "untextured.frag");
+
+    // Fonts
+    load_font(ASSET_FONT_VCR, "vcr_osd_mono_regular_48.sfl");
+
+    // Audio
+    load_audio_path(ASSET_AUDIO_SONG, "outthere.wav");
+}
+
+void assets_free()
+{
+    for (int i = 0; i < ASSET_TEXTURE_END; i++)
+    {
+        texture_free(textures + i);
+    }
+    for (int i = 0; i < ASSET_MESH_END; i++)
+    {
+        mesh_free(meshes + i);
+    }
+    for (int i = 0; i < ASSET_SHADER_END; i++)
+    {
+        shader_free(shaders + i);
+    }
+    for (int i = 0; i < ASSET_FONT_END; i++)
+    {
+        font_free(fonts + i);
+    }
+    for (int i = 0; i < ASSET_AUDIO_END; i++)
+    {
+        free(audio_paths[i]);
+    }
+}
+
+struct texture *get_texture(enum asset_texture handle)
+{
+    return textures + handle;
+}
+
+struct mesh *get_mesh(enum asset_mesh handle)
+{
+    return meshes + handle;
+}
+
+struct shader *get_shader(enum asset_shader handle)
+{
+    return shaders + handle;
+}
+
+struct font *get_font(enum asset_font handle)
+{
+    return fonts + handle;
+}
+
+const char *get_audio_path(enum asset_audio handle)
+{
+    return audio_paths[handle];
+}

@@ -2,7 +2,7 @@
 #include <assert.h>
 #include <math.h>
 #include "shader.h"
-#include "assets.h"
+#include "asset.h"
 #include "vertex.h"
 #include "texture.h"
 #include "log.h"
@@ -45,72 +45,22 @@ struct vert_untextured
     struct color col;
 };
 
-const float skybox_vertices[] =
-{
-    -1.0f,  1.0f, -1.0f,
-    -1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-
-    -1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f, -1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-
-    -1.0f, -1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f,
-    -1.0f, -1.0f,  1.0f,
-
-    -1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f, -1.0f,
-     1.0f,  1.0f,  1.0f,
-     1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f,  1.0f,
-    -1.0f,  1.0f, -1.0f,
-
-    -1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f, -1.0f,
-     1.0f, -1.0f, -1.0f,
-    -1.0f, -1.0f,  1.0f,
-     1.0f, -1.0f,  1.0f
-};
-
 struct camera camera;
 
 struct vao mesh_vao;
 struct ebo mesh_ebo;
 struct vbo mesh_vbo;
 struct vbo mesh_model_vbo;
-struct shader mesh_instancing_shader;
+struct shader *mesh_instancing_shader;
 const struct mesh *instance_mesh;
 struct mat4 instancing_models[MAX_MESH_INSTANCES];
 size_t instance_count;
 
-struct vao skybox_vao;
-struct vbo skybox_vbo;
-struct shader skybox_shader;
-struct cubemap skybox_map;
-
 struct vao ui_vao;
 struct vbo ui_vbo;
 struct ebo ui_ebo;
-struct shader ui_shader;
-struct font font;
+struct shader *ui_shader;
+struct font *font;
 struct vert_ui ui_vertices[MAX_UI_VERTICES];
 GLuint ui_indices[MAX_UI_INDICES];
 size_t ui_vert_count;
@@ -119,13 +69,11 @@ size_t ui_index_count;
 struct vao untextured_vao;
 struct vbo untextured_vbo;
 struct ebo untextured_ebo;
-struct shader untextured_shader;
+struct shader *untextured_shader;
 struct vert_untextured untextured_vertices[MAX_UNTEXTURED_VERTICES];
 GLuint untextured_indices[MAX_UNTEXTURED_INDICES];
 size_t untextured_vert_count;
 size_t untextured_index_count;
-
-struct color fog_color;
 
 static void APIENTRY gl_message_callback(GLenum source, GLenum type, GLuint id,
                                   GLenum severity, GLsizei length,
@@ -161,8 +109,6 @@ bool render_init(GLFWwindow *window)
     camera.aspect = ASPECT_RATIO;
     camera.near = NEAR;
     camera.far = FAR;
-
-    fog_color = color_create(0, 0, 0, 255);
 
     struct vert_attrib pos_attrib =
     {
@@ -212,38 +158,9 @@ bool render_init(GLFWwindow *window)
     instance_mesh = NULL;
     instance_count = 0;
 
-    load_shader(&mesh_instancing_shader, "mesh_instance.vert",
-            "mesh_instance.frag");
-    glUseProgram(mesh_instancing_shader.id);
-    shader_set_int(&mesh_instancing_shader, "u_sampler", 0);
-    shader_set_color(&mesh_instancing_shader, "u_fog_color", fog_color);
-    shader_set_float(&mesh_instancing_shader, "u_fog_start", FOG_START);
-    shader_set_float(&mesh_instancing_shader, "u_fog_end", FOG_END);
-
-    // Skybox rendering setup
-    vao_init(&skybox_vao);
-    vao_bind(&skybox_vao);
-    vbo_init(&skybox_vbo, sizeof(skybox_vertices), skybox_vertices,
-            BUFFER_STATIC);
-    vao_add_vbo(&skybox_vao, &skybox_vbo, 1, pos_attrib);
-
-    load_shader(&skybox_shader, "skybox.vert", "skybox.frag");
-    glUseProgram(skybox_shader.id);
-    shader_set_int(&skybox_shader, "u_skybox", 0);
-    shader_set_color(&skybox_shader, "u_fog_color", fog_color);
-    shader_set_float(&skybox_shader, "u_fog_amount", SKYBOX_FOG_AMOUNT);
-
-    const char *skybox_faces[6] =
-    {
-        "bkg/blue/bkg1_right.png",
-        "bkg/blue/bkg1_left.png",
-        "bkg/blue/bkg1_top.png",
-        "bkg/blue/bkg1_bot.png",
-        "bkg/blue/bkg1_front.png",
-        "bkg/blue/bkg1_back.png",
-    };
-
-    load_cubemap(&skybox_map, skybox_faces);
+    mesh_instancing_shader = get_shader(ASSET_SHADER_MESH);
+    glUseProgram(mesh_instancing_shader->id);
+    shader_set_int(mesh_instancing_shader, "u_sampler", 0);
 
     // UI rendering setup
     vao_init(&ui_vao);
@@ -255,13 +172,13 @@ bool render_init(GLFWwindow *window)
     vao_set_ebo(&ui_vao, &ui_ebo);
     vao_add_vbo(&ui_vao, &ui_vbo, 1, ui_attrib);
 
-    load_shader(&ui_shader, "text.vert", "text.frag");
-    glUseProgram(ui_shader.id);
-    shader_set_int(&ui_shader, "u_bitmap", 0);
+    ui_shader = get_shader(ASSET_SHADER_UI);
+    glUseProgram(ui_shader->id);
+    shader_set_int(ui_shader, "u_bitmap", 0);
     struct mat4 ui_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
-    shader_set_mat4(&ui_shader, "u_projection", &ui_proj);
+    shader_set_mat4(ui_shader, "u_projection", &ui_proj);
 
-    load_font(&font, "vcr_osd_mono_regular_48.sfl");
+    font = get_font(ASSET_FONT_VCR);
 
     // Untextured rendering setup
     vao_init(&untextured_vao);
@@ -273,7 +190,7 @@ bool render_init(GLFWwindow *window)
     vao_add_vbo(&untextured_vao, &untextured_vbo, 2,
             pos_attrib, color_attrib);
 
-    load_shader(&untextured_shader, "untextured.vert", "untextured.frag");
+    untextured_shader = get_shader(ASSET_SHADER_UNTEXTURED);
 
     return true;
 }
@@ -284,43 +201,14 @@ void render_shutdown()
     vbo_free(&mesh_vbo);
     vbo_free(&mesh_model_vbo);
     vao_free(&mesh_vao);
-    shader_free(&mesh_instancing_shader);
 
     ebo_free(&ui_ebo);
     vbo_free(&ui_vbo);
     vao_free(&ui_vao);
-    shader_free(&ui_shader);
 
     ebo_free(&untextured_ebo);
     vbo_free(&untextured_vbo);
     vao_free(&untextured_vao);
-    shader_free(&untextured_shader);
-
-    vbo_free(&skybox_vbo);
-    vao_free(&skybox_vao);
-    shader_free(&skybox_shader);
-
-    cubemap_free(&skybox_map);
-    font_free(&font);
-}
-
-void render_skybox()
-{
-    struct mat4 skybox_view = mat4_remove_translation(camera_view(&camera));
-    struct mat4 proj = camera_projection(&camera);
-
-    // Change depth function to draw skybox behind all other objects
-    glDepthFunc(GL_LEQUAL);
-
-    glUseProgram(skybox_shader.id);
-    shader_set_mat4(&skybox_shader, "u_view", &skybox_view);
-    shader_set_mat4(&skybox_shader, "u_projection", &proj);
-
-    glBindVertexArray(skybox_vao.id);
-    glBindTexture(GL_TEXTURE_CUBE_MAP, skybox_map.id);
-    glDrawArrays(GL_TRIANGLES, 0, 36);
-
-    glDepthFunc(GL_LESS);
 }
 
 void mesh_instancing_begin(const struct mesh *mesh)
@@ -340,12 +228,12 @@ void mesh_instancing_begin(const struct mesh *mesh)
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, mesh->texture->id);
 
-    glUseProgram(mesh_instancing_shader.id);
+    glUseProgram(mesh_instancing_shader->id);
     struct mat4 view = camera_view(&camera);
     struct mat4 proj = camera_projection(&camera);
-    shader_set_mat4(&mesh_instancing_shader, "u_view", &view);
-    shader_set_mat4(&mesh_instancing_shader, "u_projection", &proj);
-    shader_set_vec3(&mesh_instancing_shader, "u_view_pos", camera.transform.pos);
+    shader_set_mat4(mesh_instancing_shader, "u_view", &view);
+    shader_set_mat4(mesh_instancing_shader, "u_projection", &proj);
+    shader_set_vec3(mesh_instancing_shader, "u_view_pos", camera.transform.pos);
 }
 
 void push_mesh_transform(const struct transform *transform)
@@ -376,10 +264,10 @@ void mesh_instancing_end()
 void ui_begin()
 {
     vao_bind(&ui_vao);
-    glUseProgram(ui_shader.id);
+    glUseProgram(ui_shader->id);
 
     glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, font.bitmap.id);
+    glBindTexture(GL_TEXTURE_2D, font->bitmap.id);
 }
 
 void ui_end()
@@ -412,25 +300,25 @@ void push_text(const char *str, float x, float y, float size)
             curx = x;
             // FIXME: Why is the spacing so small?
             // Adding extra spacing as a quick fix
-            cury -= (font.lheight + 10.0f) * size;
+            cury -= (font->lheight + 10.0f) * size;
             str++;
             continue;
         }
 
-        assert(c >= font.start_id && c < font.start_id + font.num_char);
+        assert(c >= font->start_id && c < font->start_id + font->num_char);
         assert(ui_vert_count + 4 <= MAX_UI_VERTICES);
         assert(ui_index_count + 6 <= MAX_UI_INDICES);
 
-        struct fchar *fchar = font.chars + c - font.start_id;
+        struct fchar *fchar = font->chars + c - font->start_id;
         float x0 = curx + fchar->xoff * size;
         float x1 = x0 + fchar->w * size;
         float y0 = cury - (fchar->h + fchar->yoff) * size;
         float y1 = y0 + fchar->h * size;
 
-        float uvx0 = fchar->x / (float)font.bitmap.width;
-        float uvx1 = (fchar->x + fchar->w) / (float)font.bitmap.width;
-        float uvy0 = (fchar->y + fchar->h) / (float)font.bitmap.height;
-        float uvy1 = fchar->y / (float)font.bitmap.height;
+        float uvx0 = fchar->x / (float)font->bitmap.width;
+        float uvx1 = (fchar->x + fchar->w) / (float)font->bitmap.width;
+        float uvy0 = (fchar->y + fchar->h) / (float)font->bitmap.height;
+        float uvy1 = fchar->y / (float)font->bitmap.height;
 
         vert->x = x0;
         vert->y = y1;
@@ -475,11 +363,11 @@ void push_text(const char *str, float x, float y, float size)
 void untextured_frame_begin()
 {
     vao_bind(&untextured_vao);
-    glUseProgram(untextured_shader.id);
+    glUseProgram(untextured_shader->id);
     struct mat4 view = camera_view(&camera);
     struct mat4 proj = camera_projection(&camera);
-    shader_set_mat4(&untextured_shader, "u_view", &view);
-    shader_set_mat4(&untextured_shader, "u_projection", &proj);
+    shader_set_mat4(untextured_shader, "u_view", &view);
+    shader_set_mat4(untextured_shader, "u_projection", &proj);
 }
 
 void untextured_frame_end()

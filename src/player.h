@@ -1,6 +1,5 @@
 #pragma once
 #include "transform.h"
-#include "render.h"
 #include "world.h"
 
 struct actor *spawn_player(struct world *w, struct vec3 pos);

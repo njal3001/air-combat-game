@@ -14,7 +14,6 @@ void main()
 {
    vec4 pos = vec4(a_pos, 1.0) * a_model;
    gl_Position = pos * u_view * u_projection;
-
    v_pos = vec3(pos);
    v_uv = a_uv;
 }

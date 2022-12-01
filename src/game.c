@@ -3,7 +3,7 @@
 #include <stdio.h>
 #include "render.h"
 #include "input.h"
-#include "assets.h"
+#include "asset.h"
 #include "world.h"
 #include "menu.h"
 #include "audio.h"
@@ -71,7 +71,7 @@ void game_run()
     struct world world;
 
     world_init(&world);
-    audio_play("outthere.wav");
+    audio_play(ASSET_AUDIO_SONG);
 
     timer_init();
 

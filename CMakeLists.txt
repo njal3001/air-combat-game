@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.12)
-project(air-combat)
+project(asteroids)
 
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -7,7 +7,7 @@ find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
 find_package(GLEW REQUIRED)
 
-add_executable(air-combat
+add_executable(asteroids
     src/main.c
     src/spatial.h
     src/spatial.c
@@ -23,8 +23,8 @@ add_executable(air-combat
     src/camera.c
     src/input.h
     src/input.c
-    src/assets.h
-    src/assets.c
+    src/asset.h
+    src/asset.c
     src/platform.h
     src/platform.c
     src/hashmap.h
@@ -59,13 +59,15 @@ add_executable(air-combat
     src/font.c
     src/particle.h
     src/particle.c
+    src/orb.h
+    src/orb.c
 )
 
 include_directories(. ${GLEW_INCLUDE_DIRS})
 
-target_link_libraries(air-combat glfw ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+target_link_libraries(asteroids glfw ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
 
 add_custom_target(run
-    COMMAND air-combat
-    DEPENDS air-combat
+    COMMAND asteroids
+    DEPENDS asteroids
     WORKING_DIRECTORY ${CMAKE_PROJECT_DIR})
