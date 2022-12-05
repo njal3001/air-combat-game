@@ -65,7 +65,7 @@ add_executable(asteroids
 
 include_directories(. ${GLEW_INCLUDE_DIRS})
 
-target_link_libraries(asteroids glfw ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+target_link_libraries(asteroids m glfw ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
 
 add_custom_target(run
     COMMAND asteroids

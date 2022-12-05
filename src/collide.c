@@ -98,11 +98,11 @@ bool check_collide(const struct actor *a, const struct actor *b)
     return true;
 }
 
-void render_collider_outline(const struct actor *ac)
+void render_collider_outline(const struct actor *ac, float thickness, struct color col)
 {
     struct cbox_info info;
     get_cbox_info(&info, ac);
 
     push_volume_outline(info.points[0], info.points[1], info.points[2], info.points[3],
-        info.points[4], info.points[5], info.points[6], info.points[7], 1.0f, COLOR_RED);
+        info.points[4], info.points[5], info.points[6], info.points[7], thickness, col);
 }

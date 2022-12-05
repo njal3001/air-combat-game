@@ -1,17 +1,12 @@
 #include "world.h"
 #include <assert.h>
 #include <string.h>
+#include "asset.h"
 #include "render.h"
 #include "player.h"
 #include "orb.h"
 #include "collide.h"
 #include "calc.h"
-
-struct render_spec
-{
-    const struct mesh *mesh;
-    const struct shader *shader;
-};
 
 struct actor_iter
 {
@@ -139,6 +134,26 @@ void world_update(struct world *w, float dt)
 
 void world_render(struct world *w)
 {
+    for (enum actor_type type = 0; type < ACTOR_TYPE_END; type++)
+    {
+        struct render_spec rspec = actor_type_render_spec(type);
+        mesh_instancing_begin(get_mesh(rspec.mesh_handle));
+
+        struct actor_iter iter;
+        actor_iter_init(&iter, w, false);
+
+        struct actor *ac;
+        while ((ac = actor_iter_next(&iter)))
+        {
+            if (ac->type == type)
+            {
+                push_mesh_transform(&ac->transform);
+            }
+        }
+
+        mesh_instancing_end();
+    }
+
     if (w->show_colliders)
     {
         untextured_frame_begin();
@@ -149,7 +164,7 @@ void world_render(struct world *w)
         struct actor *ac;
         while ((ac = actor_iter_next(&iter)))
         {
-            render_collider_outline(ac);
+            render_collider_outline(ac, 1.0f, COLOR_RED);
         }
 
         untextured_frame_end();
@@ -205,7 +220,7 @@ struct actor *first_collide(struct world *w, const struct actor *ac,
     struct actor *other;
     while ((other = actor_iter_next(&iter)))
     {
-        if (other->id != ac->id && other->type & type_mask)
+        if (other->id != ac->id && actor_type_bit(other->type) & type_mask)
         {
             if (check_collide(ac, other))
             {

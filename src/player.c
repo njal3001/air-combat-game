@@ -82,5 +82,5 @@ void player_render_state_info(struct actor *ac)
             pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
             data->spd, data->ang_spdx, data->ang_spdy);
 
-    push_text(pinfo, 15.0f, 160.0f, 0.4f);
+    push_text(pinfo, 10.0f, 110.0f, 0.4f);
 }

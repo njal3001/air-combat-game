@@ -61,6 +61,8 @@ bool game_init()
 
     input_init(window);
 
+    actor_types_init();
+
     return true;
 }
 
