@@ -37,8 +37,20 @@ void player_update(struct actor *ac, float dt)
     struct player_data *data = ac->data;
 
     struct vec3 fwd = transform_forward(&ac->transform);
-    int rdirx = key_down(GLFW_KEY_S) - key_down(GLFW_KEY_W);
-    int rdiry = key_down(GLFW_KEY_A) - key_down(GLFW_KEY_D);
+    float rdirx;
+    float rdiry;
+
+    const struct controller *cont = get_first_controller();
+    if (cont)
+    {
+        rdirx = cont->axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
+        rdiry = -cont->axes[GLFW_GAMEPAD_AXIS_LEFT_X];
+    }
+    else
+    {
+        rdirx = key_down(GLFW_KEY_S) - key_down(GLFW_KEY_W);
+        rdiry = key_down(GLFW_KEY_A) - key_down(GLFW_KEY_D);
+    }
 
     if (rdirx)
     {

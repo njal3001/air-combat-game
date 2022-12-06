@@ -5,7 +5,8 @@
 
 enum menu_event menu_update()
 {
-    if (key_pressed(GLFW_KEY_ENTER))
+    const struct controller *cont = get_first_controller();
+    if (any_key_pressed() || (cont && any_button_pressed(cont)))
     {
         return MENU_EVENT_PLAY;
     }
@@ -17,6 +18,6 @@ void menu_render()
 {
     ui_begin();
     push_text(GAME_NAME, 585.0f, 780.0f, 2.0f);
-    push_text("Press enter to begin", 650.0f, 600.0f, 1.0f);
+    push_text("Press any key to begin", 650.0f, 600.0f, 1.0f);
     ui_end();
 }
