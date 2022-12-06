@@ -16,9 +16,42 @@ enum gstate
 };
 
 GLFWwindow *window;
-bool camera_free;
+
+bool camera_free_mode;
 
 enum gstate state = GSTATE_MENU;
+
+static void camera_free_mode_update(float dt)
+{
+    struct camera *cam = get_camera();
+    const struct mouse *mouse = get_mouse();
+
+    if (mouse->buttons[GLFW_MOUSE_BUTTON_MIDDLE].state & KEY_DOWN)
+    {
+        struct vec3 right = transform_right(&cam->transform);
+        struct vec3 up = transform_up(&cam->transform);
+
+        float dispx = mouse->dx * dt;
+        float dispy = mouse->dy * dt;
+
+        vec3_add_eq(&cam->transform.pos, vec3_mul(right, dispx));
+        vec3_add_eq(&cam->transform.pos, vec3_mul(up, dispy));
+    }
+
+    if (mouse->buttons[GLFW_MOUSE_BUTTON_RIGHT].state & KEY_DOWN)
+    {
+        const float rspeed = 0.25f;
+        float rx = -mouse->dy * rspeed * dt;
+        float ry = mouse->dx * rspeed * dt;
+
+        transform_local_rotx(&cam->transform, rx);
+        transform_local_roty(&cam->transform, ry);
+    }
+
+    struct vec3 forward = transform_forward(&cam->transform);
+    float famount = consume_mouse_scroll() * 100.0f * dt;
+    vec3_add_eq(&cam->transform.pos, vec3_mul(forward, famount));
+}
 
 bool game_init()
 {
@@ -105,16 +138,16 @@ void game_run()
                 // NOTE: Debug only
                 if (key_pressed(GLFW_KEY_ESCAPE))
                 {
-                    camera_free = !camera_free;
+                    camera_free_mode = !camera_free_mode;
                 }
                 else if (key_pressed(GLFW_KEY_F10))
                 {
                     toggle_collider_rendering(&world);
                 }
 
-                if (camera_free)
+                if (camera_free_mode)
                 {
-                    camera_free_update(get_camera());
+                    camera_free_mode_update(dt);
                 }
                 else
                 {

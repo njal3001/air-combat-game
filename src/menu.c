@@ -6,7 +6,7 @@
 enum menu_event menu_update()
 {
     const struct controller *cont = get_first_controller();
-    if (any_key_pressed() || (cont && any_button_pressed(cont)))
+    if (any_key_pressed() || (cont && any_controller_button_pressed(cont)))
     {
         return MENU_EVENT_PLAY;
     }

@@ -9,6 +9,14 @@ struct key keys[KEY_MAX];
 struct controller controllers[CONTROLLER_MAX];
 bool controller_active[CONTROLLER_MAX];
 
+struct mouse mouse;
+float mouse_scroll;
+
+static void mouse_scroll_callback(GLFWwindow *w, double offsetx, double offsety)
+{
+    mouse_scroll += offsety;
+}
+
 static void update_key(struct key *key, int state)
 {
     key->state &= ~(KEY_PRESSED | KEY_RELEASED);
@@ -36,10 +44,14 @@ static void update_key(struct key *key, int state)
 void input_init(GLFWwindow *window)
 {
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
+    glfwSetInputMode(window, GLFW_STICKY_MOUSE_BUTTONS, GLFW_TRUE);
+
+    glfwSetScrollCallback(window, mouse_scroll_callback);
 }
 
 void input_update(GLFWwindow *window)
 {
+    // Keyboard
     for (int k = 0; k < KEY_MAX; k++)
     {
         struct key *key = keys + k;
@@ -47,6 +59,7 @@ void input_update(GLFWwindow *window)
         update_key(key, state);
     }
 
+    // Controllers
     for (int jid = 0; jid < CONTROLLER_MAX; jid++)
     {
         bool active = glfwJoystickPresent(jid);
@@ -77,6 +90,21 @@ void input_update(GLFWwindow *window)
             }
         }
     }
+
+    // Mouse
+    double mposx, mposy;
+    glfwGetCursorPos(window, &mposx, &mposy);
+
+    mouse.dx = mposx - mouse.posx;
+    mouse.dy = mposy - mouse.posy;
+    mouse.posx = mposx;
+    mouse.posy = mposy;
+
+    for (int b = 0; b < MOUSE_BUTTON_MAX; b++)
+    {
+        int bstate = glfwGetMouseButton(window, b);
+        update_key(mouse.buttons + b, bstate);
+    }
 }
 
 struct key get_key(int key)
@@ -87,8 +115,7 @@ struct key get_key(int key)
 
 bool key_up(int key)
 {
-    ASSERT_KEY(key);
-    return keys[key].state ^ KEY_DOWN;
+    return !key_down(key);
 }
 
 bool key_down(int key)
@@ -135,7 +162,7 @@ const struct controller *get_first_controller()
     return NULL;
 }
 
-bool any_button_pressed(const struct controller *con)
+bool any_controller_button_pressed(const struct controller *con)
 {
     for (size_t b = 0; b < CONTROLLER_BUTTON_MAX; b++)
     {
@@ -146,4 +173,17 @@ bool any_button_pressed(const struct controller *con)
     }
 
     return false;
+}
+
+const struct mouse *get_mouse()
+{
+    return &mouse;
+}
+
+float consume_mouse_scroll()
+{
+    float val = mouse_scroll;
+    mouse_scroll = 0.0f;
+
+    return val;
 }
