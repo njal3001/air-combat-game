@@ -41,6 +41,21 @@ static void update_key(struct key *key, int state)
     }
 }
 
+static bool is_active_controller(int id)
+{
+    bool present = glfwJoystickPresent(id);
+    if (present)
+    {
+        // Mouse is detected as a single axis joystick,
+        // but we do not want to treat it as a controller.
+        int axis_count;
+        glfwGetJoystickAxes(id, &axis_count);
+        return axis_count > 1;
+    }
+
+    return false;
+}
+
 void input_init(GLFWwindow *window)
 {
     glfwSetInputMode(window, GLFW_STICKY_KEYS, GLFW_TRUE);
@@ -62,10 +77,9 @@ void input_update(GLFWwindow *window)
     // Controllers
     for (int jid = 0; jid < CONTROLLER_MAX; jid++)
     {
-        bool active = glfwJoystickPresent(jid);
-        controller_active[jid] = active;
+        controller_active[jid] = is_active_controller(jid);
 
-        if (active)
+        if (controller_active[jid])
         {
             struct controller *con = controllers + jid;
 
