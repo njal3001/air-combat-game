@@ -1,7 +1,7 @@
 #pragma once
 #include <GL/glew.h>
 #include <stdlib.h>
-#include "spatial.h"
+#include "vector.h"
 
 struct vert_mesh
 {

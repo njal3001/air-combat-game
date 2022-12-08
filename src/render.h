@@ -5,7 +5,7 @@
 #include <stdbool.h>
 #include "color.h"
 #include "mesh.h"
-#include "spatial.h"
+#include "vector.h"
 #include "transform.h"
 #include "camera.h"
 

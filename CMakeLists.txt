@@ -9,8 +9,8 @@ find_package(GLEW REQUIRED)
 
 add_executable(asteroids
     src/main.c
-    src/spatial.h
-    src/spatial.c
+    src/vector.h
+    src/vector.c
     src/render.h
     src/render.c
     src/transform.h

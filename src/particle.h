@@ -1,6 +1,6 @@
 #pragma once
 #include <stdlib.h>
-#include "spatial.h"
+#include "vector.h"
 #include "color.h"
 
 struct particle

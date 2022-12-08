@@ -2,7 +2,7 @@
 #include <GL/glew.h>
 #include <stdbool.h>
 #include "hashmap.h"
-#include "spatial.h"
+#include "vector.h"
 #include "color.h"
 
 struct shader
