@@ -314,7 +314,7 @@ void assets_init()
     // Shaders
     load_shader(ASSET_SHADER_MESH, "mesh_instance.vert",
             "mesh_instance.frag");
-    load_shader(ASSET_SHADER_UI, "text.vert", "text.frag");
+    load_shader(ASSET_SHADER_UI, "ui.vert", "ui.frag");
     load_shader(ASSET_SHADER_UNTEXTURED, "untextured.vert",
             "untextured.frag");
 

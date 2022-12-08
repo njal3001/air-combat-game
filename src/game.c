@@ -161,7 +161,8 @@ void game_run()
                         dt * 100.0f, timer_fps());
 
                 render_ui_begin();
-                render_push_ui_text(dinfo, vec2_create(1550.0f, 1060.0f), 0.4f);
+                render_push_ui_text(dinfo, vec2_create(1550.0f, 1060.0f),
+                        0.4f, COLOR_WHITE);
                 render_ui_end();
 
                 if (world_ended(&world))

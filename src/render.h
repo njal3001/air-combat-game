@@ -23,7 +23,8 @@ void render_mesh_instancing_end();
 
 void render_ui_begin();
 void render_ui_end();
-void render_push_ui_text(const char *str, struct vec2 pos, float size);
+void render_push_ui_text(const char *str, struct vec2 pos,
+        float size, struct color col);
 
 void render_untextured_begin();
 void render_untextured_end();

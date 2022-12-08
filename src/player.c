@@ -103,15 +103,16 @@ void player_render_crosshair(struct actor *ac, struct camera *cam)
     struct vec3 wpos = vec3_add(ac->transform.pos, vec3_mul(fwd, 5.0f));
 
     float chsize = 0.5f;
+
     struct vec2 chpos = world_to_screen_pos(cam, wpos);
     chpos.x = chpos.x * UI_WIDTH - 48.0f * chsize;
     chpos.y = chpos.y * UI_HEIGHT + 48.0f * chsize;
-    render_push_ui_text("o", chpos, chsize);
+    render_push_ui_text("o", chpos, chsize, COLOR_GREEN);
 
     struct vec2 screen_center;
     screen_center.x = UI_WIDTH / 2.0f - 48.0f * chsize;
     screen_center.y = UI_HEIGHT / 2.0f + 48.0f * chsize;
-    render_push_ui_text("x", screen_center, chsize);
+    render_push_ui_text("x", screen_center, chsize, COLOR_GREEN);
 }
 
 void player_render_state_info(struct actor *ac)
@@ -127,5 +128,5 @@ void player_render_state_info(struct actor *ac)
             pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
             data->spd, data->ang_spd.x, data->ang_spd.y);
 
-    render_push_ui_text(pinfo, vec2_create(10.0f, 110.0f), 0.4f);
+    render_push_ui_text(pinfo, vec2_create(10.0f, 110.0f), 0.4f, COLOR_WHITE);
 }

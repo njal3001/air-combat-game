@@ -33,6 +33,7 @@ struct vert_ui
 {
     float x, y;
     float uvx, uvy;
+    struct color col;
 };
 
 struct vert_untextured
@@ -166,11 +167,11 @@ bool render_init(GLFWwindow *window)
     ebo_init(&ui_ebo, MAX_UI_INDICES, NULL, BUFFER_DYNAMIC);
 
     vao_set_ebo(&ui_vao, &ui_ebo);
-    vao_add_vbo(&ui_vao, &ui_vbo, 1, ui_attrib);
+    vao_add_vbo(&ui_vao, &ui_vbo, 2, ui_attrib, color_attrib);
 
     ui_shader = get_shader(ASSET_SHADER_UI);
     glUseProgram(ui_shader->id);
-    shader_set_int(ui_shader, "u_bitmap", 0);
+    shader_set_int(ui_shader, "u_texture", 0);
     struct mat4 ui_proj = mat4_ortho(0.0f, UI_WIDTH, 0.0f,
             UI_HEIGHT, 0.0f, 1.0f);
     shader_set_mat4(ui_shader, "u_projection", &ui_proj);
@@ -282,7 +283,8 @@ void render_ui_end()
     ui_index_count = 0;
 }
 
-void render_push_ui_text(const char *str, struct vec2 pos, float size)
+void render_push_ui_text(const char *str, struct vec2 pos,
+        float size, struct color col)
 {
     float curx = pos.x;
     float cury = pos.y;
@@ -321,24 +323,28 @@ void render_push_ui_text(const char *str, struct vec2 pos, float size)
         vert->y = y1;
         vert->uvx = uvx0;
         vert->uvy = uvy1;
+        vert->col = col;
         vert++;
 
         vert->x = x0;
         vert->y = y0;
         vert->uvx = uvx0;
         vert->uvy = uvy0;
+        vert->col = col;
         vert++;
 
         vert->x = x1;
         vert->y = y0;
         vert->uvx = uvx1;
         vert->uvy = uvy0;
+        vert->col = col;
         vert++;
 
         vert->x = x1;
         vert->y = y1;
         vert->uvx = uvx1;
         vert->uvy = uvy1;
+        vert->col = col;
         vert++;
 
         GLuint *index = ui_indices + ui_index_count;
