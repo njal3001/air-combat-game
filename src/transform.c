@@ -14,17 +14,17 @@ struct transform transform_create(struct vec3 pos)
 
 struct vec3 transform_forward(const struct transform *t)
 {
-    return mat4_vmul(t->rot, VEC3_FORWARD);
+    return mat4_v3mul(t->rot, VEC3_FORWARD);
 }
 
 struct vec3 transform_up(const struct transform *t)
 {
-    return mat4_vmul(t->rot, VEC3_UP);
+    return mat4_v3mul(t->rot, VEC3_UP);
 }
 
 struct vec3 transform_right(const struct transform *t)
 {
-    return mat4_vmul(t->rot, VEC3_RIGHT);
+    return mat4_v3mul(t->rot, VEC3_RIGHT);
 }
 
 struct mat4 transform_matrix(const struct transform *t)

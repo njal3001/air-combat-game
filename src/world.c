@@ -120,10 +120,8 @@ void world_update(struct world *w, float dt)
 
     if (w->player)
     {
-        // Camera is always following the player
         struct camera *cam = get_camera();
-        cam->transform.pos = w->player->transform.pos;
-        cam->transform.rot = w->player->transform.rot;
+        player_camera_view(w->player, cam, dt);
 
         if (w->player->flags & ACTOR_DEAD)
         {
@@ -137,7 +135,7 @@ void world_render(struct world *w)
     for (enum actor_type type = 0; type < ACTOR_TYPE_END; type++)
     {
         struct render_spec rspec = actor_type_render_spec(type);
-        mesh_instancing_begin(get_mesh(rspec.mesh_handle));
+        render_mesh_instancing_begin(get_mesh(rspec.mesh_handle));
 
         struct actor_iter iter;
         actor_iter_init(&iter, w, false);
@@ -147,16 +145,16 @@ void world_render(struct world *w)
         {
             if (ac->type == type)
             {
-                push_mesh_transform(&ac->transform);
+                render_push_mesh_transform(&ac->transform);
             }
         }
 
-        mesh_instancing_end();
+        render_mesh_instancing_end();
     }
 
     if (w->show_colliders)
     {
-        untextured_frame_begin();
+        render_untextured_begin();
 
         struct actor_iter iter;
         actor_iter_init(&iter, w, false);
@@ -167,14 +165,17 @@ void world_render(struct world *w)
             render_collider_outline(ac, 1.0f, COLOR_RED);
         }
 
-        untextured_frame_end();
+        render_untextured_end();
     }
 
     if (w->player)
     {
-        ui_begin();
+        struct camera *cam = get_camera();
+
+        render_ui_begin();
+        player_render_crosshair(w->player, cam);
         player_render_state_info(w->player);
-        ui_end();
+        render_ui_end();
     }
 }
 

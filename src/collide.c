@@ -19,17 +19,21 @@ struct cbox_prj
 };
 
 static void get_cbox_info(struct cbox_info *info, const struct actor *ac);
-static struct cbox_prj get_cbox_projection(const struct cbox_info *info, struct vec3 axis);
+static struct cbox_prj get_cbox_projection(const struct cbox_info *info,
+        struct vec3 axis);
 
 void get_cbox_info(struct cbox_info *info, const struct actor *ac)
 {
     info->axis_x = transform_right(&ac->transform);
     info->axis_y = transform_up(&ac->transform);
     info->axis_z = transform_forward(&ac->transform);
-    struct vec3 p = mat4_vmul(transform_matrix(&ac->transform), ac->cbox.offset);
-    struct vec3 dx = vec3_mul(info->axis_x, ac->transform.scale.x * ac->cbox.bounds.x);
-    struct vec3 dy = vec3_mul(info->axis_y, ac->transform.scale.y * ac->cbox.bounds.y);
-    struct vec3 dz = vec3_mul(info->axis_z, ac->transform.scale.z * ac->cbox.bounds.z);
+    struct vec3 p = mat4_v3mul(transform_matrix(&ac->transform), ac->cbox.offset);
+    struct vec3 dx = vec3_mul(info->axis_x,
+            ac->transform.scale.x * ac->cbox.bounds.x);
+    struct vec3 dy = vec3_mul(info->axis_y,
+            ac->transform.scale.y * ac->cbox.bounds.y);
+    struct vec3 dz = vec3_mul(info->axis_z,
+            ac->transform.scale.z * ac->cbox.bounds.z);
 
     info->points[0] = vec3_add(vec3_add(vec3_sub(p, dx), dy), dz);
     info->points[1] = vec3_add(vec3_sub(vec3_sub(p, dx), dy), dz);
@@ -41,7 +45,8 @@ void get_cbox_info(struct cbox_info *info, const struct actor *ac)
     info->points[7] = vec3_sub(vec3_add(vec3_add(p, dx), dy), dz);
 }
 
-struct cbox_prj get_cbox_projection(const struct cbox_info *info, struct vec3 axis)
+struct cbox_prj get_cbox_projection(const struct cbox_info *info,
+        struct vec3 axis)
 {
     struct cbox_prj res;
     res.start = FLT_MAX;
@@ -98,11 +103,13 @@ bool check_collide(const struct actor *a, const struct actor *b)
     return true;
 }
 
-void render_collider_outline(const struct actor *ac, float thickness, struct color col)
+void render_collider_outline(const struct actor *ac, float thickness,
+        struct color col)
 {
     struct cbox_info info;
     get_cbox_info(&info, ac);
 
-    push_volume_outline(info.points[0], info.points[1], info.points[2], info.points[3],
-        info.points[4], info.points[5], info.points[6], info.points[7], thickness, col);
+    render_push_untextured_volume_outline(info.points[0], info.points[1],
+            info.points[2], info.points[3], info.points[4], info.points[5],
+            info.points[6], info.points[7], thickness, col);
 }

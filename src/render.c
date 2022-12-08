@@ -29,10 +29,6 @@
 #define MAX_UNTEXTURED_VERTICES 30000000
 #define MAX_UNTEXTURED_INDICES 50000000
 
-#define SKYBOX_FOG_AMOUNT 0.8f
-#define FOG_START 3500.0f
-#define FOG_END 5000.0f
-
 struct vert_ui
 {
     float x, y;
@@ -175,7 +171,8 @@ bool render_init(GLFWwindow *window)
     ui_shader = get_shader(ASSET_SHADER_UI);
     glUseProgram(ui_shader->id);
     shader_set_int(ui_shader, "u_bitmap", 0);
-    struct mat4 ui_proj = mat4_ortho(0.0f, 1920.0f, 0.0f, 1080.0f, 0.0f, 1.0f);
+    struct mat4 ui_proj = mat4_ortho(0.0f, UI_WIDTH, 0.0f,
+            UI_HEIGHT, 0.0f, 1.0f);
     shader_set_mat4(ui_shader, "u_projection", &ui_proj);
 
     font = get_font(ASSET_FONT_VCR);
@@ -211,7 +208,7 @@ void render_shutdown()
     vao_free(&untextured_vao);
 }
 
-void mesh_instancing_begin(const struct mesh *mesh)
+void render_mesh_instancing_begin(const struct mesh *mesh)
 {
     assert(!instance_count);
     assert(!instance_mesh);
@@ -236,7 +233,7 @@ void mesh_instancing_begin(const struct mesh *mesh)
     shader_set_vec3(mesh_instancing_shader, "u_view_pos", camera.transform.pos);
 }
 
-void push_mesh_transform(const struct transform *transform)
+void render_push_mesh_transform(const struct transform *transform)
 {
     assert(instance_mesh);
     assert(instance_count < MAX_MESH_INSTANCES);
@@ -245,7 +242,7 @@ void push_mesh_transform(const struct transform *transform)
     instance_count++;
 }
 
-void mesh_instancing_end()
+void render_mesh_instancing_end()
 {
     assert(instance_mesh);
 
@@ -261,7 +258,7 @@ void mesh_instancing_end()
     instance_mesh = NULL;
 }
 
-void ui_begin()
+void render_ui_begin()
 {
     vao_bind(&ui_vao);
     glUseProgram(ui_shader->id);
@@ -270,7 +267,7 @@ void ui_begin()
     glBindTexture(GL_TEXTURE_2D, font->bitmap.id);
 }
 
-void ui_end()
+void render_ui_end()
 {
     if (ui_vert_count && ui_index_count)
     {
@@ -285,10 +282,10 @@ void ui_end()
     ui_index_count = 0;
 }
 
-void push_text(const char *str, float x, float y, float size)
+void render_push_ui_text(const char *str, struct vec2 pos, float size)
 {
-    float curx = x;
-    float cury = y;
+    float curx = pos.x;
+    float cury = pos.y;
 
     struct vert_ui *vert = ui_vertices + ui_vert_count;
 
@@ -297,7 +294,7 @@ void push_text(const char *str, float x, float y, float size)
     {
         if (c == '\n')
         {
-            curx = x;
+            curx = pos.x;
             // FIXME: Why is the spacing so small?
             // Adding extra spacing as a quick fix
             cury -= (font->lheight + 10.0f) * size;
@@ -360,7 +357,7 @@ void push_text(const char *str, float x, float y, float size)
     }
 }
 
-void untextured_frame_begin()
+void render_untextured_begin()
 {
     vao_bind(&untextured_vao);
     glUseProgram(untextured_shader->id);
@@ -370,7 +367,7 @@ void untextured_frame_begin()
     shader_set_mat4(untextured_shader, "u_projection", &proj);
 }
 
-void untextured_frame_end()
+void render_untextured_end()
 {
     if (untextured_vert_count && untextured_index_count)
     {
@@ -389,7 +386,7 @@ void untextured_frame_end()
     untextured_index_count = 0;
 }
 
-void push_quad(struct vec3 a, struct vec3 b, struct vec3 c,
+void render_push_untextured_quad(struct vec3 a, struct vec3 b, struct vec3 c,
         struct vec3 d, struct color col)
 {
     assert(untextured_vert_count + 4 <= MAX_UNTEXTURED_VERTICES);
@@ -426,30 +423,31 @@ void push_quad(struct vec3 a, struct vec3 b, struct vec3 c,
     untextured_index_count += 6;
 }
 
-void push_volume(struct vec3 p0, struct vec3 p1, struct vec3 p2, struct vec3 p3,
-        struct vec3 p4, struct vec3 p5, struct vec3 p6, struct vec3 p7,
-        struct color col)
+void render_push_untextured_volume(struct vec3 p0, struct vec3 p1,
+        struct vec3 p2, struct vec3 p3, struct vec3 p4, struct vec3 p5,
+        struct vec3 p6, struct vec3 p7, struct color col)
 {
     // Near
-    push_quad(p0, p1, p2, p3, col);
+    render_push_untextured_quad(p0, p1, p2, p3, col);
 
     // Far
-    push_quad(p7, p6, p5, p4, col);
+    render_push_untextured_quad(p7, p6, p5, p4, col);
 
     // Top
-    push_quad(p4, p0, p3, p7, col);
+    render_push_untextured_quad(p4, p0, p3, p7, col);
 
     // Bottom
-    push_quad(p1, p5, p6, p2, col);
+    render_push_untextured_quad(p1, p5, p6, p2, col);
 
     // Left
-    push_quad(p4, p5, p1, p0, col);
+    render_push_untextured_quad(p4, p5, p1, p0, col);
 
     // Right
-    push_quad(p3, p2, p6, p7, col);
+    render_push_untextured_quad(p3, p2, p6, p7, col);
 }
 
-void push_cube(struct vec3 center, struct vec3 size, struct color col)
+void render_push_untextured_cube(struct vec3 center, struct vec3 size,
+        struct color col)
 {
     struct vec3 shalf = vec3_div(size, 2.0f);
     float left = center.x - shalf.x;
@@ -469,10 +467,11 @@ void push_cube(struct vec3 center, struct vec3 size, struct color col)
     struct vec3 p6 = vec3_create(right, bot, far);
     struct vec3 p7 = vec3_create(right, top, far);
 
-    push_volume(p0, p1, p2, p3, p4, p5, p6, p7, col);
+    render_push_untextured_volume(p0, p1, p2, p3, p4, p5, p6, p7, col);
 }
 
-void push_line(struct vec3 a, struct vec3 b, float thickness, struct color col)
+void render_push_untextured_line(struct vec3 a, struct vec3 b, float thickness,
+        struct color col)
 {
     float thalf = thickness / 2.0f;
 
@@ -491,28 +490,28 @@ void push_line(struct vec3 a, struct vec3 b, float thickness, struct color col)
     struct vec3 p6 = vec3_sub(vec3_sub(vec3_add(b, dx), dy), dz);
     struct vec3 p7 = vec3_sub(vec3_add(vec3_add(b, dx), dy), dz);
 
-    push_volume(p0, p1, p2, p3, p4, p5, p6, p7, col);
+    render_push_untextured_volume(p0, p1, p2, p3, p4, p5, p6, p7, col);
 }
 
-void push_volume_outline(struct vec3 p0, struct vec3 p1, struct vec3 p2,
-        struct vec3 p3, struct vec3 p4, struct vec3 p5, struct vec3 p6,
-        struct vec3 p7, float thickness, struct color col)
+void render_push_untextured_volume_outline(struct vec3 p0, struct vec3 p1,
+        struct vec3 p2, struct vec3 p3, struct vec3 p4, struct vec3 p5,
+        struct vec3 p6, struct vec3 p7, float thickness, struct color col)
 {
-    push_line(p0, p1, thickness, col);
-    push_line(p1, p2, thickness, col);
-    push_line(p2, p3, thickness, col);
-    push_line(p3, p0, thickness, col);
+    render_push_untextured_line(p0, p1, thickness, col);
+    render_push_untextured_line(p1, p2, thickness, col);
+    render_push_untextured_line(p2, p3, thickness, col);
+    render_push_untextured_line(p3, p0, thickness, col);
 
-    push_line(p4, p5, thickness, col);
-    push_line(p5, p6, thickness, col);
-    push_line(p6, p7, thickness, col);
-    push_line(p7, p4, thickness, col);
+    render_push_untextured_line(p4, p5, thickness, col);
+    render_push_untextured_line(p5, p6, thickness, col);
+    render_push_untextured_line(p6, p7, thickness, col);
+    render_push_untextured_line(p7, p4, thickness, col);
 
-    push_line(p0, p4, thickness, col);
-    push_line(p3, p7, thickness, col);
+    render_push_untextured_line(p0, p4, thickness, col);
+    render_push_untextured_line(p3, p7, thickness, col);
 
-    push_line(p1, p5, thickness, col);
-    push_line(p2, p6, thickness, col);
+    render_push_untextured_line(p1, p5, thickness, col);
+    render_push_untextured_line(p2, p6, thickness, col);
 }
 
 struct camera *get_camera()

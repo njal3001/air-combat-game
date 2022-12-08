@@ -16,8 +16,9 @@ enum menu_event menu_update()
 
 void menu_render()
 {
-    ui_begin();
-    push_text(GAME_NAME, 585.0f, 780.0f, 2.0f);
-    push_text("Press any key to begin", 650.0f, 600.0f, 1.0f);
-    ui_end();
+    render_ui_begin();
+    render_push_ui_text(GAME_NAME, vec2_create(585.0f, 780.0f), 2.0f);
+    render_push_ui_text("Press any key to begin", vec2_create(650.0f, 600.0f),
+            1.0f);
+    render_ui_end();
 }

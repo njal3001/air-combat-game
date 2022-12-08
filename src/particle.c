@@ -31,7 +31,7 @@ void speed_lines_update_and_render(size_t count,
     }
     speed_line_count = count;
 
-    untextured_frame_begin();
+    render_untextured_begin();
     for (size_t i = 0; i < speed_line_count; i++)
     {
         struct particle *p = speed_lines + i;
@@ -42,11 +42,11 @@ void speed_lines_update_and_render(size_t count,
         }
         else
         {
-            struct vec3 dir = mat4_vmul(rot, p->dir);
+            struct vec3 dir = mat4_v3mul(rot, p->dir);
 
             struct vec3 start_pos = p->dir;
             start_pos.z = 0.0f;
-            start_pos = mat4_vmul(rot, start_pos);
+            start_pos = mat4_v3mul(rot, start_pos);
             start_pos = vec3_mul(vec3_normalize(start_pos), off);
 
             struct vec3 pos = vec3_add(start_pos, vec3_mul(dir,
@@ -54,9 +54,9 @@ void speed_lines_update_and_render(size_t count,
             struct vec3 lstart = vec3_add(pos, offset);
             struct vec3 lend = vec3_add(lstart,
                     vec3_mul(dir, length));
-            push_line(lstart, lend, 0.01f, COLOR_WHITE);
+            render_push_untextured_line(lstart, lend, 0.01f, COLOR_WHITE);
         }
     }
 
-    untextured_frame_end();
+    render_untextured_end();
 }

@@ -12,9 +12,9 @@ struct vec2 vec2_create(float x, float y)
     return res;
 }
 
-bool vec2_eq(struct vec2 a, struct vec2 b)
+bool vec2_eq(struct vec2 v1, struct vec2 b)
 {
-    return a.x == b.x && a.y == b.y;
+    return v1.x == b.x && v1.y == b.y;
 }
 
 struct vec2 vec2_neg(struct vec2 v)
@@ -109,6 +109,11 @@ struct vec2 vec2_normalize(struct vec2 v)
     return vec2_div(v, length);
 }
 
+float vec2_angle(struct vec2 v1, struct vec2 v2)
+{
+    return atan2(v1.x * v2.y - v1.y * v2.x, v1.x * v2.x + v1.y * v2.y);
+}
+
 // FIXME: Not uniform?
 // Also should prevent zero vectors
 struct vec2 vec2_rand()
@@ -149,9 +154,9 @@ struct vec3 vec3_create(float x, float y, float z)
     return res;
 }
 
-bool vec3_eq(struct vec3 a, struct vec3 b)
+bool vec3_eq(struct vec3 v1, struct vec3 v2)
 {
-    return a.x == b.x && a.y == b.y && a.z == b.z;
+    return v1.x == v2.x && v1.y == v2.y && v1.z == v2.z;
 }
 
 struct vec3 vec3_neg(struct vec3 v)
@@ -295,6 +300,27 @@ struct vec3 vec3_approach(struct vec3 val, struct vec3 target, float amount)
 
     struct vec3 dir = vec3_normalize(diff);
     return vec3_add(val, vec3_mul(dir, amount));
+}
+
+struct vec4 vec4_create(float x, float y, float z, float w)
+{
+    struct vec4 res;
+    res.x = x;
+    res.y = y;
+    res.z = z;
+    res.w = w;
+    return res;
+}
+
+struct vec4 vec4_div(struct vec4 v, float rhs)
+{
+    struct vec4 res;
+    res.x = v.x / rhs;
+    res.y = v.y / rhs;
+    res.z = v.z / rhs;
+    res.w = v.w / rhs;
+
+    return res;
 }
 
 struct ivec3 ivec3_create(int x, int y, int z)
@@ -443,12 +469,23 @@ struct mat4 mat4_mul(struct mat4 lhs, struct mat4 rhs)
     return res;
 }
 
-struct vec3 mat4_vmul(struct mat4 m, struct vec3 v)
+struct vec3 mat4_v3mul(struct mat4 m, struct vec3 v)
 {
     struct vec3 res;
     res.x = m.m11 * v.x + m.m12 * v.y + m.m13 * v.z + m.m14;
     res.y = m.m21 * v.x + m.m22 * v.y + m.m23 * v.z + m.m24;
     res.z = m.m31 * v.x + m.m32 * v.y + m.m33 * v.z + m.m34;
+
+    return res;
+}
+
+struct vec4 mat4_v4mul(struct mat4 m, struct vec4 v)
+{
+    struct vec4 res;
+    res.x = m.m11 * v.x + m.m12 * v.y + m.m13 * v.z + m.m14 * v.w;
+    res.y = m.m21 * v.x + m.m22 * v.y + m.m23 * v.z + m.m24 * v.w;
+    res.z = m.m31 * v.x + m.m32 * v.y + m.m33 * v.z + m.m34 * v.w;
+    res.w = m.m41 * v.x + m.m42 * v.y + m.m43 * v.z + m.m44 * v.w;
 
     return res;
 }
@@ -662,6 +699,11 @@ void vec2_print(struct vec2 v)
 void vec3_print(struct vec3 v)
 {
     printf("(%f, %f, %f)\n", v.x, v.y, v.z);
+}
+
+void vec4_print(struct vec4 v)
+{
+    printf("(%f, %f, %f, %f)\n", v.x, v.y, v.z, v.w);
 }
 
 void mat4_print(struct mat4 m)

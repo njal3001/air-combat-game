@@ -11,6 +11,11 @@ struct vec3
     float x, y, z;
 };
 
+struct vec4
+{
+    float x, y, z, w;
+};
+
 struct mat4
 {
     union
@@ -43,7 +48,7 @@ struct ivec3
 };
 
 struct vec2 vec2_create(float x, float y);
-bool vec2_eq(struct vec2 a, struct vec2 b);
+bool vec2_eq(struct vec2 v1, struct vec2 v2);
 struct vec2 vec2_neg(struct vec2 v);
 struct vec2 vec2_add(struct vec2 lhs, struct vec2 rhs);
 struct vec2 vec2_sub(struct vec2 lhs, struct vec2 rhs);
@@ -57,12 +62,13 @@ float vec2_dot(struct vec2 v1, struct vec2 v2);
 float vec2_length(struct vec2 v);
 float vec2_length2(struct vec2 v);
 struct vec2 vec2_normalize(struct vec2 v);
+float vec2_angle(struct vec2 v1, struct vec2 v2);
 struct vec2 vec2_rand();
 struct vec2 vec2_randrange(float min, float max);
 struct vec2 vec2_approach(struct vec2 val, struct vec2 target, float amount);
 
 struct vec3 vec3_create(float x, float y, float z);
-bool vec3_eq(struct vec3 a, struct vec3 b);
+bool vec3_eq(struct vec3 v1, struct vec3 v2);
 struct vec3 vec3_neg(struct vec3 v);
 struct vec3 vec3_add(struct vec3 lhs, struct vec3 rhs);
 struct vec3 vec3_sub(struct vec3 lhs, struct vec3 rhs);
@@ -81,6 +87,9 @@ struct vec3 vec3_rand();
 struct vec3 vec3_randrange(float min, float max);
 struct vec3 vec3_approach(struct vec3 val, struct vec3 target, float amount);
 
+struct vec4 vec4_create(float x, float y, float z, float w);
+struct vec4 vec4_div(struct vec4 v, float rhs);
+
 struct ivec3 ivec3_create(int x, int y, int z);
 struct ivec3 ivec3_add(struct ivec3 lhs, struct ivec3 rhs);
 bool ivec3_equal(struct ivec3 a, struct ivec3 b);
@@ -96,7 +105,8 @@ struct mat4 mat4_identity();
 struct mat4 mat4_add(struct mat4 lhs, struct mat4 rhs);
 struct mat4 mat4_sub(struct mat4 lhs, struct mat4 rhs);
 struct mat4 mat4_mul(struct mat4 lhs, struct mat4 rhs);
-struct vec3 mat4_vmul(struct mat4 m, struct vec3 v);
+struct vec3 mat4_v3mul(struct mat4 m, struct vec3 v);
+struct vec4 mat4_v4mul(struct mat4 m, struct vec4 v);
 struct mat4 mat4_fmul(struct mat4 m, float f);
 struct mat4 mat4_scale(struct vec3 s);
 struct mat4 mat4_translate(struct vec3 t);
@@ -113,6 +123,7 @@ struct mat4 mat4_remove_translation(struct mat4 m);
 
 void vec2_print(struct vec2 v);
 void vec3_print(struct vec3 v);
+void vec4_print(struct vec4 v);
 void mat4_print(struct mat4 m);
 
 extern const struct vec2 VEC2_ZERO;

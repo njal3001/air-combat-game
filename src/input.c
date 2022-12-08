@@ -3,7 +3,7 @@
 #include <math.h>
 
 #define ASSERT_KEY(k) assert((k) > 0 && (k) < KEY_MAX)
-#define CONTROLLER_AXIS_DEAD_ZONE 0.050
+#define CONTROLLER_AXIS_DEAD_ZONE 0.30f
 
 struct key keys[KEY_MAX];
 struct controller controllers[CONTROLLER_MAX];

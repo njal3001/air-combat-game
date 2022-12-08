@@ -7,6 +7,16 @@ float fclamp(float min, float val, float max)
     return fmin(fmax(min, val), max);
 }
 
+float fmid(float a, float b, float c)
+{
+    return fmax(fmin(a, b), fmin(fmax(a, b), c));
+}
+
+float fsgn(float val)
+{
+    return val < 0.0f ? -1.0f : 1.0f;
+}
+
 float approach(float val, float target, float amount)
 {
     if (val > target)
