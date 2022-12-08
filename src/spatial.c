@@ -4,6 +4,142 @@
 #include <stdio.h>
 #include "calc.h"
 
+struct vec2 vec2_create(float x, float y)
+{
+    struct vec2 res;
+    res.x = x;
+    res.y = y;
+    return res;
+}
+
+bool vec2_eq(struct vec2 a, struct vec2 b)
+{
+    return a.x == b.x && a.y == b.y;
+}
+
+struct vec2 vec2_neg(struct vec2 v)
+{
+    struct vec2 res;
+    res.x = -v.x;
+    res.y = -v.y;
+
+    return res;
+}
+
+struct vec2 vec2_add(struct vec2 lhs, struct vec2 rhs)
+{
+    struct vec2 res;
+    res.x = lhs.x + rhs.x;
+    res.y = lhs.y + rhs.y;
+
+    return res;
+}
+
+struct vec2 vec2_sub(struct vec2 lhs, struct vec2 rhs)
+{
+    struct vec2 res;
+    res.x = lhs.x - rhs.x;
+    res.y = lhs.y - rhs.y;
+
+    return res;
+}
+
+struct vec2 vec2_mul(struct vec2 v, float rhs)
+{
+    struct vec2 res;
+    res.x = v.x * rhs;
+    res.y = v.y * rhs;
+
+    return res;
+}
+
+struct vec2 vec2_div(struct vec2 v, float rhs)
+{
+    struct vec2 res;
+    res.x = v.x / rhs;
+    res.y = v.y / rhs;
+
+    return res;
+}
+
+void vec2_add_eq(struct vec2 *lhs, struct vec2 rhs)
+{
+    lhs->x += rhs.x;
+    lhs->y += rhs.y;
+}
+
+void vec2_sub_eq(struct vec2 *lhs, struct vec2 rhs)
+{
+    lhs->x -= rhs.x;
+    lhs->y -= rhs.y;
+}
+
+void vec2_mul_eq(struct vec2 *v, float rhs)
+{
+    v->x *= rhs;
+    v->y *= rhs;
+}
+
+void vec2_div_eq(struct vec2 *v, float rhs)
+{
+    v->x /= rhs;
+    v->y /= rhs;
+}
+
+float vec2_dot(struct vec2 v1, struct vec2 v2)
+{
+    return v1.x * v2.x + v1.y * v2.y;
+}
+
+float vec2_length(struct vec2 v)
+{
+    return sqrtf(vec2_length2(v));
+}
+
+float vec2_length2(struct vec2 v)
+{
+    return v.x * v.x + v.y * v.y;
+}
+
+struct vec2 vec2_normalize(struct vec2 v)
+{
+    float length = vec2_length(v);
+    if (length == 0) return v;
+
+    return vec2_div(v, length);
+}
+
+// FIXME: Not uniform?
+// Also should prevent zero vectors
+struct vec2 vec2_rand()
+{
+    float x = frandrange(-1.0f, 1.0f);
+    float y = frandrange(-1.0f, 1.0f);
+
+    return vec2_normalize(vec2_create(x, y));
+}
+
+struct vec2 vec2_randrange(float min, float max)
+{
+    struct vec2 dir = vec2_rand();
+    float len = frandrange(min, max);
+
+    return vec2_mul(dir, len);
+}
+
+struct vec2 vec2_approach(struct vec2 val, struct vec2 target, float amount)
+{
+    struct vec2 diff = vec2_sub(target, val);
+    float l2 = vec2_length2(diff);
+    if (l2 <= amount * amount)
+    {
+        return target;
+    }
+
+    struct vec2 dir = vec2_normalize(diff);
+    return vec2_add(val, vec2_mul(dir, amount));
+}
+
 struct vec3 vec3_create(float x, float y, float z)
 {
     struct vec3 res;
@@ -11,6 +147,11 @@ struct vec3 vec3_create(float x, float y, float z)
     res.y = y;
     res.z = z;
     return res;
+}
+
+bool vec3_eq(struct vec3 a, struct vec3 b)
+{
+    return a.x == b.x && a.y == b.y && a.z == b.z;
 }
 
 struct vec3 vec3_neg(struct vec3 v)
@@ -143,6 +284,19 @@ struct vec3 vec3_randrange(float min, float max)
     return vec3_mul(dir, len);
 }
 
+struct vec3 vec3_approach(struct vec3 val, struct vec3 target, float amount)
+{
+    struct vec3 diff = vec3_sub(target, val);
+    float l2 = vec3_length2(diff);
+    if (l2 >= amount * amount)
+    {
+        return target;
+    }
+
+    struct vec3 dir = vec3_normalize(diff);
+    return vec3_add(val, vec3_mul(dir, amount));
+}
+
 struct ivec3 ivec3_create(int x, int y, int z)
 {
     struct ivec3 res;
@@ -166,7 +320,6 @@ bool ivec3_equal(struct ivec3 a, struct ivec3 b)
 {
     return a.x == b.x && a.y == b.y && a.z == b.z;
 }
-
 
 struct mat4 mat4_create(
         float m11, float m12, float m13, float m14,
@@ -501,6 +654,11 @@ struct mat4 mat4_remove_translation(struct mat4 m)
     return m;
 }
 
+void vec2_print(struct vec2 v)
+{
+    printf("(%f, %f)\n", v.x, v.y);
+}
+
 void vec3_print(struct vec3 v)
 {
     printf("(%f, %f, %f)\n", v.x, v.y, v.z);
@@ -517,6 +675,13 @@ void mat4_print(struct mat4 m)
             m.m31, m.m32, m.m33, m.m34,
             m.m41, m.m42, m.m43, m.m44);
 }
+
+const struct vec2 VEC2_ZERO =    { 0.0f, 0.0f  };
+const struct vec2 VEC2_UP =      { 0.0f, 1.0f  };
+const struct vec2 VEC2_DOWN =    { 0.0f, -1.0f };
+const struct vec2 VEC2_RIGHT =   { 1.0f, 0.0f  };
+const struct vec2 VEC2_LEFT =    { -1.0f, 0.0f };
+const struct vec2 VEC2_ONE =     { 1.0f, 1.0f  };
 
 const struct vec3 VEC3_ZERO =    { 0.0f, 0.0f, 0.0f  };
 const struct vec3 VEC3_UP =      { 0.0f, 1.0f, 0.0f  };
