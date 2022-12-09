@@ -1,25 +1,36 @@
 #include "player.h"
 #include <stdio.h>
+#include <math.h>
 #include "render.h"
 #include "input.h"
 #include "calc.h"
 
-#define SPD 10.0f
-#define SCALE 5.0f
-#define ACCEL 10.0f
-#define ANG_ACCEL 1.5f
-#define ANG_DEACCEL 1.0f
-#define ANG_SPD_MAX 0.8f
-#define LOOK_START 0.4f
-#define LOOK_ANG_MAX 0.05f
-#define LOOK_ANG_SPD 0.3f
+#define SPD_BASE           10.0f
+#define SCALE               1.0f
+#define ACCEL               10.0f
+#define ANG_ACCEL           1.5f
+#define ANG_DEACCEL         1.0f
+#define ANG_SPD_MAX         0.8f
+#define ORB_TARGET_START    2
+#define ORB_TARGET_MUL      2
+#define ORB_SPD_MUL         1.2f
+#define LOOK_START          0.4f
+#define LOOK_ANG_MAX        0.05f
+#define LOOK_ANG_SPD        0.3f
 
 struct player_data
 {
     float spd;
     struct vec2 ang_spd;
     struct vec2 look_ang;
+    uint32_t orb_level;
+    uint32_t orb_amount;
 };
+
+static uint32_t calculate_orb_target(struct player_data *data)
+{
+    return ORB_TARGET_START + data->orb_level * ORB_TARGET_MUL;
+}
 
 struct actor *spawn_player(struct world *w, struct vec3 pos)
 {
@@ -27,9 +38,11 @@ struct actor *spawn_player(struct world *w, struct vec3 pos)
     ac->transform.scale = vec3_create(SCALE, SCALE, SCALE);
 
     struct player_data *data = malloc(sizeof(struct player_data));
-    data->spd = SPD;
+    data->spd = SPD_BASE;
     data->ang_spd = VEC2_ZERO;
     data->look_ang = VEC2_ZERO;
+    data->orb_level = 0;
+    data->orb_amount = 0;
 
     ac->data = data;
 
@@ -69,6 +82,9 @@ void player_update(struct actor *ac, float dt)
     transform_local_rotx(&ac->transform, data->ang_spd.x * dt);
     transform_local_roty(&ac->transform, data->ang_spd.y * dt);
 
+    float speed_target = SPD_BASE * powf(ORB_SPD_MUL, data->orb_level);
+    data->spd = approach(data->spd, speed_target, ACCEL * dt);
+
     struct vec3 fwd = transform_forward(&ac->transform);
     vec3_add_eq(&ac->transform.pos, vec3_mul(fwd, data->spd * dt));
 
@@ -84,6 +100,22 @@ void player_update(struct actor *ac, float dt)
     struct vec2 look_target = vec2_mul(look_amount, LOOK_ANG_MAX);
     data->look_ang = vec2_approach(data->look_ang, look_target,
             LOOK_ANG_SPD * dt);
+}
+
+void player_handle_collide(struct actor *ac, struct actor *hit)
+{
+    if (hit->type == ACTOR_TYPE_ORB)
+    {
+        struct player_data *data = ac->data;
+        data->orb_amount++;
+
+        uint32_t orb_target = calculate_orb_target(data);
+        if (data->orb_amount >= orb_target)
+        {
+            data->orb_amount = 0;
+            data->orb_level++;
+        }
+    }
 }
 
 void player_camera_view(struct actor *ac, struct camera *cam, float dt)
@@ -122,12 +154,14 @@ void player_render_state_info(struct actor *ac)
 
     struct vec3 pos = ac->transform.pos;
     struct vec3 fwd = transform_forward(&ac->transform);
+    uint32_t orb_target = calculate_orb_target(data);
+
     static char pinfo[256];
-
     snprintf(pinfo, 256, "Pos: (%f, %f, %f)\n"
-            "Forward: (%f, %f, %f)\nSpd: %f\nAng Spd: (%f, %f)\n",
+            "Forward: (%f, %f, %f)\nSpd: %f\nAng Spd: (%f, %f)\nOrb: %d/%d\n",
             pos.x, pos.y, pos.z, fwd.x, fwd.y, fwd.z,
-            data->spd, data->ang_spd.x, data->ang_spd.y);
+            data->spd, data->ang_spd.x, data->ang_spd.y,
+            data->orb_amount, orb_target);
 
-    render_push_ui_text(pinfo, vec2_create(10.0f, 110.0f), 0.4f, COLOR_WHITE);
+    render_push_ui_text(pinfo, vec2_create(10.0f, 150.0f), 0.4f, COLOR_WHITE);
 }

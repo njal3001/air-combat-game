@@ -78,7 +78,7 @@ void world_start(struct world *w)
 
     w->player = spawn_player(w, VEC3_ZERO);
 
-    for (size_t i = 0; i < 100; i++)
+    for (size_t i = 0; i < 1000; i++)
     {
         struct vec3 pos = vec3_randrange(20.0f, 100.0f);
         spawn_orb(w, pos);
@@ -197,7 +197,7 @@ struct actor *new_actor(struct world *w, struct vec3 pos,
     uint16_t new_id = find_free_actor(w);
     struct actor *new_ac = get_actor(w, new_id);
 
-    actor_init(new_ac, new_id, type, w->tick, pos);
+    actor_init(new_ac, w, new_id, type, w->tick, pos);
     w->num_actors++;
 
     return new_ac;
