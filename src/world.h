@@ -10,6 +10,7 @@ struct world
     uint16_t num_actors;
     uint8_t tick;
     bool show_colliders;
+    bool show_hud;
 };
 
 void world_init(struct world *w);
@@ -29,3 +30,4 @@ struct actor *first_collide(struct world *w, const struct actor *ac,
         int type_mask);
 
 void toggle_collider_rendering(struct world *w);
+void toggle_hud_rendering(struct world *w);

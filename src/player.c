@@ -100,18 +100,19 @@ void player_camera_view(struct actor *ac, struct camera *cam, float dt)
 void player_render_crosshair(struct actor *ac, struct camera *cam)
 {
     struct vec3 fwd = transform_forward(&ac->transform);
-    struct vec3 wpos = vec3_add(ac->transform.pos, vec3_mul(fwd, 5.0f));
+    struct vec3 wpos = vec3_add(ac->transform.pos, fwd);
 
+    float foffset = 24.0f;
     float chsize = 0.5f;
 
     struct vec2 chpos = world_to_screen_pos(cam, wpos);
-    chpos.x = chpos.x * UI_WIDTH - 48.0f * chsize;
-    chpos.y = chpos.y * UI_HEIGHT + 48.0f * chsize;
+    chpos.x = chpos.x * UI_WIDTH - foffset * chsize;
+    chpos.y = chpos.y * UI_HEIGHT + foffset * chsize;
     render_push_ui_text("o", chpos, chsize, COLOR_GREEN);
 
     struct vec2 screen_center;
-    screen_center.x = UI_WIDTH / 2.0f - 48.0f * chsize;
-    screen_center.y = UI_HEIGHT / 2.0f + 48.0f * chsize;
+    screen_center.x = UI_WIDTH / 2.0f - foffset * chsize;
+    screen_center.y = UI_HEIGHT / 2.0f + foffset * chsize;
     render_push_ui_text("x", screen_center, chsize, COLOR_GREEN);
 }
 

@@ -1,6 +1,7 @@
 #include "input.h"
 #include <assert.h>
 #include <math.h>
+#include <stdio.h>
 
 #define ASSERT_KEY(k) assert((k) > 0 && (k) < KEY_MAX)
 #define CONTROLLER_AXIS_DEAD_ZONE 0.30f

@@ -65,6 +65,7 @@ static uint16_t find_free_actor(struct world *w)
 void world_init(struct world *w)
 {
     w->show_colliders = false;
+    w->show_hud = true;
 }
 
 void world_start(struct world *w)
@@ -162,13 +163,13 @@ void world_render(struct world *w)
         struct actor *ac;
         while ((ac = actor_iter_next(&iter)))
         {
-            render_collider_outline(ac, 1.0f, COLOR_RED);
+            render_collider_outline(ac, 0.1f, COLOR_RED);
         }
 
         render_untextured_end();
     }
 
-    if (w->player)
+    if (w->player && w->show_hud)
     {
         struct camera *cam = get_camera();
 
@@ -236,4 +237,9 @@ struct actor *first_collide(struct world *w, const struct actor *ac,
 void toggle_collider_rendering(struct world *w)
 {
    w->show_colliders = !w->show_colliders;
+}
+
+void toggle_hud_rendering(struct world *w)
+{
+    w->show_hud = !w->show_hud;
 }

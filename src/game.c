@@ -8,6 +8,7 @@
 #include "menu.h"
 #include "audio.h"
 #include "timer.h"
+#include "log.h"
 
 enum gstate
 {
@@ -31,8 +32,9 @@ static void camera_free_mode_update(float dt)
         struct vec3 right = transform_right(&cam->transform);
         struct vec3 up = transform_up(&cam->transform);
 
-        float dispx = mouse->dx * dt;
-        float dispy = mouse->dy * dt;
+        const float mspeed = 10.0f;
+        float dispx = mouse->dx * mspeed * dt;
+        float dispy = mouse->dy * mspeed * dt;
 
         vec3_add_eq(&cam->transform.pos, vec3_mul(right, dispx));
         vec3_add_eq(&cam->transform.pos, vec3_mul(up, dispy));
@@ -40,7 +42,7 @@ static void camera_free_mode_update(float dt)
 
     if (mouse->buttons[GLFW_MOUSE_BUTTON_RIGHT].state & KEY_DOWN)
     {
-        const float rspeed = 0.25f;
+        const float rspeed = 0.5f;
         float rx = -mouse->dy * rspeed * dt;
         float ry = mouse->dx * rspeed * dt;
 
@@ -49,7 +51,7 @@ static void camera_free_mode_update(float dt)
     }
 
     struct vec3 forward = transform_forward(&cam->transform);
-    float famount = consume_mouse_scroll() * 100.0f * dt;
+    float famount = consume_mouse_scroll() * 10000.0f * dt;
     vec3_add_eq(&cam->transform.pos, vec3_mul(forward, famount));
 }
 
@@ -80,7 +82,7 @@ bool game_init()
     {
         assets_free();
         glfwTerminate();
-        printf("Failed to initialize renderer!");
+        log_err("Failed to initialize renderer");
         return false;
     }
 
@@ -88,7 +90,7 @@ bool game_init()
     {
         assets_free();
         glfwTerminate();
-        printf("Failed to initialize audio\n");
+        log_err("Failed to initialize audio");
         return false;
     }
 
@@ -139,6 +141,7 @@ void game_run()
                 if (key_pressed(GLFW_KEY_ESCAPE))
                 {
                     camera_free_mode = !camera_free_mode;
+                    toggle_hud_rendering(&world);
                 }
                 else if (key_pressed(GLFW_KEY_F10))
                 {
