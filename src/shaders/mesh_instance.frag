@@ -6,7 +6,6 @@ in vec3 v_pos;
 in vec2 v_uv;
 
 uniform sampler2D u_sampler;
-uniform vec3 u_view_pos;
 
 void main()
 {

@@ -16,11 +16,12 @@ struct world
 void world_init(struct world *w);
 void world_free(struct world *w);
 
-void world_start(struct world *w);
+void world_begin(struct world *w);
+void world_end(struct world *w);
 void world_update(struct world *w, float dt);
 void world_render(struct world *w);
 
-bool world_ended(const struct world *w);
+bool world_should_end(const struct world *w);
 
 struct actor *new_actor(struct world *w, struct vec3 pos,
         enum actor_type type);

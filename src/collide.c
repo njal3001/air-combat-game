@@ -27,7 +27,8 @@ void get_cbox_info(struct cbox_info *info, const struct actor *ac)
     info->axis_x = transform_right(&ac->transform);
     info->axis_y = transform_up(&ac->transform);
     info->axis_z = transform_forward(&ac->transform);
-    struct vec3 p = mat4_v3mul(transform_matrix(&ac->transform), ac->cbox.offset);
+    struct vec3 p = mat4_v3mul(transform_matrix(&ac->transform),
+            ac->cbox.offset);
     struct vec3 dx = vec3_mul(info->axis_x,
             ac->transform.scale.x * ac->cbox.bounds.x);
     struct vec3 dy = vec3_mul(info->axis_y,

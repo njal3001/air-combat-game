@@ -2,14 +2,11 @@
 #include <math.h>
 #include <stdio.h>
 
-struct transform transform_create(struct vec3 pos)
+void transform_init(struct transform *t, struct vec3 pos)
 {
-    return (struct transform)
-    {
-        .pos = pos,
-        .scale = vec3_create(1.0f, 1.0f, 1.0f),
-        .rot = mat4_identity(),
-    };
+    t->pos = pos;
+    t->scale = vec3_create(1.0f, 1.0f, 1.0f);
+    t->rot = mat4_identity();
 }
 
 struct vec3 transform_forward(const struct transform *t)

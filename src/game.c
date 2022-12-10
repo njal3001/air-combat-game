@@ -129,7 +129,7 @@ void game_run()
                 if (mevent == MENU_EVENT_PLAY)
                 {
                     state = GSTATE_PLAY;
-                    world_start(&world);
+                    world_begin(&world);
                 }
 
                 menu_render();
@@ -168,8 +168,9 @@ void game_run()
                         0.4f, COLOR_WHITE);
                 render_ui_end();
 
-                if (world_ended(&world))
+                if (world_should_end(&world))
                 {
+                    world_end(&world);
                     state = GSTATE_MENU;
                 }
 

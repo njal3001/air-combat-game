@@ -66,16 +66,18 @@ void world_init(struct world *w)
 {
     w->show_colliders = false;
     w->show_hud = true;
-}
 
-void world_start(struct world *w)
-{
-    memset(w->actors, 0, MAX_ACTORS * sizeof(struct actor));
-    w->num_actors = 0;
+    memset(w->actors, 0, sizeof(w->actors));
 
     // Spawn tick is 0 for all initial actors
     w->tick = 0;
 
+    w->num_actors = 0;
+    w->player = NULL;
+}
+
+void world_begin(struct world *w)
+{
     w->player = spawn_player(w, VEC3_ZERO);
 
     for (size_t i = 0; i < 1000; i++)
@@ -83,6 +85,23 @@ void world_start(struct world *w)
         struct vec3 pos = vec3_randrange(20.0f, 100.0f);
         spawn_orb(w, pos);
     }
+}
+
+void world_end(struct world *w)
+{
+    struct actor_iter iter;
+    actor_iter_init(&iter, w, false);
+
+    struct actor *ac;
+    while ((ac = actor_iter_next(&iter)))
+    {
+        actor_free(ac);
+    }
+
+    memset(w->actors, 0, sizeof(w->actors));
+    w->num_actors = 0;
+    w->tick = 0;
+    w->player = NULL;
 }
 
 void world_update(struct world *w, float dt)
@@ -182,9 +201,10 @@ void world_render(struct world *w)
 
 void world_free(struct world *w)
 {
+    world_end(w);
 }
 
-bool world_ended(const struct world *w)
+bool world_should_end(const struct world *w)
 {
     return !w->player;
 }

@@ -101,7 +101,7 @@ bool render_init(GLFWwindow *window)
     // Window resize callback
     glfwSetWindowSizeCallback(window, on_window_size_changed);
 
-    camera.transform = transform_create(VEC3_ZERO);
+    transform_init(&camera.transform, VEC3_ZERO);
     camera.fov = FOV;
     camera.aspect = ASPECT_RATIO;
     camera.near = NEAR;
@@ -231,7 +231,6 @@ void render_mesh_instancing_begin(const struct mesh *mesh)
     struct mat4 proj = camera_projection(&camera);
     shader_set_mat4(mesh_instancing_shader, "u_view", &view);
     shader_set_mat4(mesh_instancing_shader, "u_projection", &proj);
-    shader_set_vec3(mesh_instancing_shader, "u_view_pos", camera.transform.pos);
 }
 
 void render_push_mesh_transform(const struct transform *transform)

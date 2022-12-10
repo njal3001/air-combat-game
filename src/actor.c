@@ -5,21 +5,25 @@ struct render_spec rspecs[ACTOR_TYPE_END];
 void actor_types_init()
 {
     rspecs[ACTOR_TYPE_PLAYER].mesh_handle = ASSET_MESH_PLAYER;
-
     rspecs[ACTOR_TYPE_ORB].mesh_handle = ASSET_MESH_ORB;
 }
 
-void actor_init(struct actor *ac, struct world *world, uint16_t id, enum actor_type type,
-        uint8_t spawn_tick, struct vec3 pos)
+void cbox_init(struct cbox *c)
+{
+    c->bounds = VEC3_ONE;
+    c->offset = VEC3_ZERO;
+}
+
+void actor_init(struct actor *ac, struct world *world, uint16_t id,
+        enum actor_type type, uint8_t spawn_tick, struct vec3 pos)
 {
     ac->id = id;
     ac->world = world;
     ac->type = type;
     ac->flags = 0;
     ac->spawn_tick = spawn_tick;
-    ac->transform = transform_create(pos);
-    ac->cbox.bounds = VEC3_ONE;
-    ac->cbox.offset = VEC3_ZERO;
+    transform_init(&ac->transform, pos);
+    cbox_init(&ac->cbox);
     ac->data = NULL;
 }
 

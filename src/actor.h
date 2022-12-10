@@ -41,6 +41,8 @@ struct render_spec
 
 void actor_types_init();
 
+void cbox_init(struct cbox *c);
+
 void actor_init(struct actor *ac, struct world *world, uint16_t id, enum actor_type type,
         uint8_t spawn_tick, struct vec3 pos);
 void actor_free(struct actor *ac);
