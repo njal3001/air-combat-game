@@ -23,6 +23,9 @@ struct cbox
     struct vec3 bounds;
 };
 
+struct actor;
+typedef void(*actor_on_collide)(struct actor*, struct actor*);
+
 struct actor
 {
     uint16_t id;
@@ -33,6 +36,8 @@ struct actor
     enum actor_type type;
     uint8_t spawn_tick;
     void *data;
+    uint32_t collide_mask;
+    actor_on_collide on_collide;
 };
 
 struct render_spec

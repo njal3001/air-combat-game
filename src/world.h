@@ -27,8 +27,5 @@ struct actor *new_actor(struct world *w, struct vec3 pos,
         enum actor_type type);
 struct actor *get_actor(struct world *w, uint16_t id);
 
-struct actor *first_collide(struct world *w, const struct actor *ac,
-        int type_mask);
-
 void toggle_collider_rendering(struct world *w);
 void toggle_hud_rendering(struct world *w);

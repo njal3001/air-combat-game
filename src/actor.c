@@ -26,6 +26,8 @@ void actor_init(struct actor *ac, struct world *world, uint16_t id,
     transform_init(&ac->transform, pos);
     cbox_init(&ac->cbox);
     ac->data = NULL;
+    ac->collide_mask = 0;
+    ac->on_collide = NULL;
 }
 
 void actor_free(struct actor *ac)

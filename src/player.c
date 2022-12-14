@@ -39,10 +39,31 @@ static uint32_t calculate_orb_target(struct player_data *data)
     return ORB_TARGET_START + data->orb_level * ORB_TARGET_MUL;
 }
 
+static void on_collide(struct actor *ac, struct actor *hit)
+{
+    if (hit->type == ACTOR_TYPE_ORB)
+    {
+        struct player_data *data = ac->data;
+        data->orb_amount++;
+
+        uint32_t orb_target = calculate_orb_target(data);
+        if (data->orb_amount >= orb_target)
+        {
+            data->orb_amount = 0;
+            data->orb_level++;
+        }
+
+        data->fuel = fmin(data->fuel + FUEL_ORB_ADD, FUEL_MAX);
+    }
+}
+
+
 struct actor *spawn_player(struct world *w, struct vec3 pos)
 {
     struct actor *ac = new_actor(w, pos, ACTOR_TYPE_PLAYER);
     ac->transform.scale = vec3_create(SCALE, SCALE, SCALE);
+    ac->collide_mask = actor_type_bit(ACTOR_TYPE_ORB);
+    ac->on_collide = on_collide;
 
     struct player_data *data = malloc(sizeof(struct player_data));
     data->spd = SPD_BASE;
@@ -60,15 +81,6 @@ struct actor *spawn_player(struct world *w, struct vec3 pos)
 void player_update(struct actor *ac, float dt)
 {
     struct player_data *data = ac->data;
-
-    // Check wall collision
-    struct actor *wall_hit =
-        first_collide(ac->world, ac, actor_type_bit(ACTOR_TYPE_WALL));
-    if (wall_hit)
-    {
-        actor_kill(ac);
-        return;
-    }
 
     if (data->fuel < 0.0f)
     {
@@ -140,24 +152,6 @@ void player_update(struct actor *ac, float dt)
             look_ang_spd_max * dt);
 
     data->fuel -= dt * FUEL_DEPLETE_RATE;
-}
-
-void player_handle_collide(struct actor *ac, struct actor *hit)
-{
-    if (hit->type == ACTOR_TYPE_ORB)
-    {
-        struct player_data *data = ac->data;
-        data->orb_amount++;
-
-        uint32_t orb_target = calculate_orb_target(data);
-        if (data->orb_amount >= orb_target)
-        {
-            data->orb_amount = 0;
-            data->orb_level++;
-        }
-
-        data->fuel = fmin(data->fuel + FUEL_ORB_ADD, FUEL_MAX);
-    }
 }
 
 void player_camera_view(struct actor *ac, struct camera *cam, float dt)

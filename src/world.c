@@ -75,6 +75,8 @@ static void add_wall(struct world *w, struct mat4 rot)
     struct vec3 scale = vec3_create(WORLD_BOUNDS, WORLD_BOUNDS, wall_width);
 
     struct actor *wall = new_actor(w, VEC3_ZERO, ACTOR_TYPE_WALL);
+    wall->collide_mask =
+        actor_type_bit(ACTOR_TYPE_PLAYER) | actor_type_bit(ACTOR_TYPE_ORB);
     wall->transform.rot = rot;
     wall->transform.scale = scale;
 
@@ -90,6 +92,32 @@ static void add_walls(struct world *w)
     add_wall(w, mat4_rotx(-M_PI / 2.0f));
     add_wall(w, mat4_roty(M_PI / 2.0f));
     add_wall(w, mat4_roty(-M_PI / 2.0f));
+}
+
+static void all_collide(struct world *w, struct actor *ac)
+{
+    struct actor_iter iter;
+    actor_iter_init(&iter, w, true);
+
+    struct actor *other;
+    while ((other = actor_iter_next(&iter)))
+    {
+        if (other->id != ac->id &&
+                actor_type_bit(other->type) & ac->collide_mask)
+        {
+            if (check_collide(ac, other))
+            {
+                if (ac->on_collide)
+                {
+                    ac->on_collide(ac, other);
+                }
+                if (other->on_collide)
+                {
+                    other->on_collide(other, ac);
+                }
+            }
+        }
+    }
 }
 
 void world_init(struct world *w)
@@ -169,6 +197,11 @@ void world_update(struct world *w, float dt)
                     break;
                 default:
                     break;
+            }
+
+            if (ac->collide_mask)
+            {
+                all_collide(w, ac);
             }
         }
     }
@@ -270,27 +303,6 @@ struct actor *get_actor(struct world *w, uint16_t id)
     }
 
     return w->actors + id - 1;
-}
-
-struct actor *first_collide(struct world *w, const struct actor *ac,
-        int type_mask)
-{
-    struct actor_iter iter;
-    actor_iter_init(&iter, w, true);
-
-    struct actor *other;
-    while ((other = actor_iter_next(&iter)))
-    {
-        if (other->id != ac->id && actor_type_bit(other->type) & type_mask)
-        {
-            if (check_collide(ac, other))
-            {
-                return other;
-            }
-        }
-    }
-
-    return NULL;
 }
 
 void toggle_collider_rendering(struct world *w)
