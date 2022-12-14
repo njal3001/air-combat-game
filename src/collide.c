@@ -51,7 +51,7 @@ struct cbox_prj get_cbox_projection(const struct cbox_info *info,
 {
     struct cbox_prj res;
     res.start = FLT_MAX;
-    res.end = FLT_MIN;
+    res.end = -FLT_MAX;
 
     for (size_t i = 0; i < 8; i++)
     {
