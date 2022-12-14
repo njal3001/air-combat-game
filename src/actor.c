@@ -6,6 +6,7 @@ void actor_types_init()
 {
     rspecs[ACTOR_TYPE_PLAYER].mesh_handle = ASSET_MESH_PLAYER;
     rspecs[ACTOR_TYPE_ORB].mesh_handle = ASSET_MESH_ORB;
+    rspecs[ACTOR_TYPE_WALL].mesh_handle = ASSET_MESH_WALL;
 }
 
 void cbox_init(struct cbox *c)

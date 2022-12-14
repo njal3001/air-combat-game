@@ -311,6 +311,9 @@ void assets_init()
     meshes[ASSET_MESH_ORB] = create_cube_mesh();
     meshes[ASSET_MESH_ORB].texture = get_texture(ASSET_TEXTURE_METAL);
 
+    meshes[ASSET_MESH_WALL] = create_cube_mesh();
+    meshes[ASSET_MESH_WALL].texture = get_texture(ASSET_TEXTURE_METAL);
+
     // Shaders
     load_shader(ASSET_SHADER_MESH, "mesh_instance.vert",
             "mesh_instance.frag");

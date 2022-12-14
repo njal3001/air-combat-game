@@ -8,6 +8,7 @@ enum actor_type
 {
     ACTOR_TYPE_PLAYER,
     ACTOR_TYPE_ORB,
+    ACTOR_TYPE_WALL,
     ACTOR_TYPE_END,
 };
 

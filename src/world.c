@@ -1,12 +1,19 @@
 #include "world.h"
 #include <assert.h>
 #include <string.h>
+#include <math.h>
+#include <stdio.h>
 #include "asset.h"
 #include "render.h"
 #include "player.h"
 #include "orb.h"
 #include "collide.h"
 #include "calc.h"
+
+#define WORLD_BOUNDS    50.0f
+#define ORB_COUNT       1000
+#define ORB_MIN_DIST    20.0f
+#define ORB_PADDING     10.0f
 
 struct actor_iter
 {
@@ -62,6 +69,41 @@ static uint16_t find_free_actor(struct world *w)
     return 0;
 }
 
+static void add_walls(struct world *w)
+{
+    const float wall_width = 1.0f;
+
+    struct actor *top = new_actor(w,
+            vec3_create(0.0f, WORLD_BOUNDS, 0.0f), ACTOR_TYPE_WALL);
+    top->transform.scale =
+        vec3_create(WORLD_BOUNDS, wall_width, WORLD_BOUNDS);
+
+    struct actor *bottom = new_actor(w,
+            vec3_create(0.0f, -WORLD_BOUNDS, 0.0f), ACTOR_TYPE_WALL);
+    bottom->transform.scale =
+        vec3_create(WORLD_BOUNDS, wall_width, WORLD_BOUNDS);
+
+    struct actor *right =
+        new_actor(w, vec3_create(WORLD_BOUNDS, 0.0f, 0.0f), ACTOR_TYPE_WALL);
+    right->transform.scale =
+        vec3_create(wall_width, WORLD_BOUNDS, WORLD_BOUNDS);
+
+    struct actor *left = new_actor(w,
+            vec3_create(-WORLD_BOUNDS, 0.0f, 0.0f), ACTOR_TYPE_WALL);
+    left->transform.scale =
+        vec3_create(wall_width, WORLD_BOUNDS, WORLD_BOUNDS);
+
+    struct actor *forward = new_actor(w,
+            vec3_create(0.0f, 0.0f, WORLD_BOUNDS), ACTOR_TYPE_WALL);
+    forward->transform.scale =
+        vec3_create(WORLD_BOUNDS, WORLD_BOUNDS, wall_width);
+
+    struct actor *backward = new_actor(w,
+            vec3_create(0.0f, 0.0f, -WORLD_BOUNDS), ACTOR_TYPE_WALL);
+    backward->transform.scale =
+        vec3_create(WORLD_BOUNDS, WORLD_BOUNDS, wall_width);
+}
+
 void world_init(struct world *w)
 {
     w->show_colliders = false;
@@ -78,11 +120,14 @@ void world_init(struct world *w)
 
 void world_begin(struct world *w)
 {
+    add_walls(w);
+
     w->player = spawn_player(w, VEC3_ZERO);
 
-    for (size_t i = 0; i < 1000; i++)
+    for (size_t i = 0; i < ORB_COUNT; i++)
     {
-        struct vec3 pos = vec3_randrange(20.0f, 100.0f);
+        struct vec3 pos = vec3_randrange(ORB_MIN_DIST,
+                WORLD_BOUNDS - ORB_PADDING);
         spawn_orb(w, pos);
     }
 }
@@ -134,6 +179,8 @@ void world_update(struct world *w, float dt)
                 case ACTOR_TYPE_ORB:
                     orb_update(ac, dt);
                     break;
+                default:
+                    break;
             }
         }
     }
@@ -182,7 +229,11 @@ void world_render(struct world *w)
         struct actor *ac;
         while ((ac = actor_iter_next(&iter)))
         {
-            render_collider_outline(ac, 0.1f, COLOR_RED);
+            struct vec3 scale = ac->transform.scale;
+            struct vec3 bounds = ac->cbox.bounds;
+            float cmax = fmax(fmax(scale.x * bounds.x, scale.y * bounds.y),
+                    scale.z * bounds.z);
+            render_collider_outline(ac, cmax * 0.1f, COLOR_RED);
         }
 
         render_untextured_end();

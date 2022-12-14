@@ -53,6 +53,15 @@ void player_update(struct actor *ac, float dt)
 {
     struct player_data *data = ac->data;
 
+    // Check wall collision
+    struct actor *wall_hit =
+        first_collide(ac->world, ac, actor_type_bit(ACTOR_TYPE_WALL));
+    if (wall_hit)
+    {
+        actor_kill(ac);
+        return;
+    }
+
     struct vec2 rdir;
 
     const struct controller *cont = get_first_controller();
@@ -134,8 +143,8 @@ void player_render_crosshair(struct actor *ac, struct camera *cam)
     struct vec3 fwd = transform_forward(&ac->transform);
     struct vec3 wpos = vec3_add(ac->transform.pos, fwd);
 
-    float foffset = 24.0f;
-    float chsize = 0.5f;
+    const float foffset = 24.0f;
+    const float chsize = 0.5f;
 
     struct vec2 chpos = world_to_screen_pos(cam, wpos);
     chpos.x = chpos.x * UI_WIDTH - foffset * chsize;

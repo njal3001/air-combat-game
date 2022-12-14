@@ -23,6 +23,7 @@ enum asset_mesh
 {
     ASSET_MESH_PLAYER,
     ASSET_MESH_ORB,
+    ASSET_MESH_WALL,
     ASSET_MESH_END,
 };
 

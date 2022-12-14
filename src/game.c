@@ -32,7 +32,7 @@ static void camera_free_mode_update(float dt)
         struct vec3 right = transform_right(&cam->transform);
         struct vec3 up = transform_up(&cam->transform);
 
-        const float mspeed = 10.0f;
+        const float mspeed = 2.5f;
         float dispx = mouse->dx * mspeed * dt;
         float dispy = mouse->dy * mspeed * dt;
 
@@ -42,7 +42,7 @@ static void camera_free_mode_update(float dt)
 
     if (mouse->buttons[GLFW_MOUSE_BUTTON_RIGHT].state & KEY_DOWN)
     {
-        const float rspeed = 0.5f;
+        const float rspeed = 0.25f;
         float rx = -mouse->dy * rspeed * dt;
         float ry = mouse->dx * rspeed * dt;
 
@@ -51,7 +51,7 @@ static void camera_free_mode_update(float dt)
     }
 
     struct vec3 forward = transform_forward(&cam->transform);
-    float famount = consume_mouse_scroll() * 10000.0f * dt;
+    float famount = consume_mouse_scroll() * 100.0f * dt;
     vec3_add_eq(&cam->transform.pos, vec3_mul(forward, famount));
 }
 
