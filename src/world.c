@@ -10,8 +10,8 @@
 #include "collide.h"
 #include "calc.h"
 
-#define WORLD_BOUNDS    50.0f
-#define ORB_COUNT       1000
+#define WORLD_BOUNDS    100.0f
+#define ORB_COUNT       1500
 #define ORB_MIN_DIST    20.0f
 #define ORB_PADDING     10.0f
 
@@ -69,39 +69,27 @@ static uint16_t find_free_actor(struct world *w)
     return 0;
 }
 
-static void add_walls(struct world *w)
+static void add_wall(struct world *w, struct mat4 rot)
 {
     const float wall_width = 1.0f;
+    struct vec3 scale = vec3_create(WORLD_BOUNDS, WORLD_BOUNDS, wall_width);
 
-    struct actor *top = new_actor(w,
-            vec3_create(0.0f, WORLD_BOUNDS, 0.0f), ACTOR_TYPE_WALL);
-    top->transform.scale =
-        vec3_create(WORLD_BOUNDS, wall_width, WORLD_BOUNDS);
+    struct actor *wall = new_actor(w, VEC3_ZERO, ACTOR_TYPE_WALL);
+    wall->transform.rot = rot;
+    wall->transform.scale = scale;
 
-    struct actor *bottom = new_actor(w,
-            vec3_create(0.0f, -WORLD_BOUNDS, 0.0f), ACTOR_TYPE_WALL);
-    bottom->transform.scale =
-        vec3_create(WORLD_BOUNDS, wall_width, WORLD_BOUNDS);
+    struct vec3 fwd = transform_forward(&wall->transform);
+    vec3_sub_eq(&wall->transform.pos, vec3_mul(fwd, WORLD_BOUNDS));
+}
 
-    struct actor *right =
-        new_actor(w, vec3_create(WORLD_BOUNDS, 0.0f, 0.0f), ACTOR_TYPE_WALL);
-    right->transform.scale =
-        vec3_create(wall_width, WORLD_BOUNDS, WORLD_BOUNDS);
-
-    struct actor *left = new_actor(w,
-            vec3_create(-WORLD_BOUNDS, 0.0f, 0.0f), ACTOR_TYPE_WALL);
-    left->transform.scale =
-        vec3_create(wall_width, WORLD_BOUNDS, WORLD_BOUNDS);
-
-    struct actor *forward = new_actor(w,
-            vec3_create(0.0f, 0.0f, WORLD_BOUNDS), ACTOR_TYPE_WALL);
-    forward->transform.scale =
-        vec3_create(WORLD_BOUNDS, WORLD_BOUNDS, wall_width);
-
-    struct actor *backward = new_actor(w,
-            vec3_create(0.0f, 0.0f, -WORLD_BOUNDS), ACTOR_TYPE_WALL);
-    backward->transform.scale =
-        vec3_create(WORLD_BOUNDS, WORLD_BOUNDS, wall_width);
+static void add_walls(struct world *w)
+{
+    add_wall(w, mat4_identity());
+    add_wall(w, mat4_roty(M_PI));
+    add_wall(w, mat4_rotx(M_PI / 2.0f));
+    add_wall(w, mat4_rotx(-M_PI / 2.0f));
+    add_wall(w, mat4_roty(M_PI / 2.0f));
+    add_wall(w, mat4_roty(-M_PI / 2.0f));
 }
 
 void world_init(struct world *w)
@@ -244,7 +232,7 @@ void world_render(struct world *w)
         struct camera *cam = get_camera();
 
         render_ui_begin();
-        player_render_crosshair(w->player, cam);
+        player_render_hud(w->player, cam);
         player_render_state_info(w->player);
         render_ui_end();
     }

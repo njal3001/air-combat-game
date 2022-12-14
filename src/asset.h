@@ -16,6 +16,7 @@ enum asset_type
 enum asset_texture
 {
     ASSET_TEXTURE_METAL,
+    ASSET_TEXTURE_WALL,
     ASSET_TEXTURE_END,
 };
 

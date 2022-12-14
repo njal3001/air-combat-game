@@ -76,7 +76,8 @@ bool game_init()
         return false;
     }
 
-    // NOTE: Need to initialize assets before renderer because of shader loading
+    // NOTE: Need to initialize assets before renderer
+    // because of shader loading
     assets_init();
     if (!render_init(window))
     {
@@ -160,12 +161,17 @@ void game_run()
                 world_render(&world);
 
                 static char dinfo[256];
-                snprintf(dinfo, 256, "Frame time: %fms\nFPS: %d\n",
-                        dt * 100.0f, timer_fps());
+                struct vec3 cpos = get_camera()->transform.pos;
+                snprintf(dinfo, 256,
+                        "Frame time: %.2fms\nFPS: %d\n"
+                        "Camera pos: (%.2f, %.2f, %.2f)",
+                        dt * 100.0f, timer_fps(),
+                        cpos.x, cpos.y, cpos.z);
 
                 render_ui_begin();
-                render_push_ui_text(dinfo, vec2_create(1550.0f, 1060.0f),
+                render_push_ui_text(dinfo, vec2_create(1300.0f, 1060.0f),
                         0.4f, COLOR_WHITE);
+
                 render_ui_end();
 
                 if (world_should_end(&world))

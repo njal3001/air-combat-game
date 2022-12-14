@@ -86,6 +86,7 @@ struct vec3 vec3_normalize(struct vec3 v);
 struct vec3 vec3_rand();
 struct vec3 vec3_randrange(float min, float max);
 struct vec3 vec3_approach(struct vec3 val, struct vec3 target, float amount);
+struct vec3 vec3_reflect(struct vec3 dir, struct vec3 norm);
 
 struct vec4 vec4_create(float x, float y, float z, float w);
 struct vec4 vec4_div(struct vec4 v, float rhs);

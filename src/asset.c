@@ -303,16 +303,17 @@ void assets_init()
 
     // Textures
     load_texture(ASSET_TEXTURE_METAL, "rusted_metal.jpg");
+    load_texture(ASSET_TEXTURE_WALL, "wall.jpg");
 
     // Meshes
     meshes[ASSET_MESH_PLAYER] = create_cube_mesh();
     meshes[ASSET_MESH_PLAYER].texture = get_texture(ASSET_TEXTURE_METAL);
 
-    meshes[ASSET_MESH_ORB] = create_cube_mesh();
+    load_mesh(ASSET_MESH_ORB, "sphere.ply");
     meshes[ASSET_MESH_ORB].texture = get_texture(ASSET_TEXTURE_METAL);
 
     meshes[ASSET_MESH_WALL] = create_cube_mesh();
-    meshes[ASSET_MESH_WALL].texture = get_texture(ASSET_TEXTURE_METAL);
+    meshes[ASSET_MESH_WALL].texture = get_texture(ASSET_TEXTURE_WALL);
 
     // Shaders
     load_shader(ASSET_SHADER_MESH, "mesh_instance.vert",

@@ -302,6 +302,12 @@ struct vec3 vec3_approach(struct vec3 val, struct vec3 target, float amount)
     return vec3_add(val, vec3_mul(dir, amount));
 }
 
+struct vec3 vec3_reflect(struct vec3 dir, struct vec3 norm)
+{
+    struct vec3 v = vec3_neg(dir);
+    return vec3_sub(vec3_mul(vec3_mul(norm, vec3_dot(norm, v)), 2.0f), v);
+}
+
 struct vec4 vec4_create(float x, float y, float z, float w)
 {
     struct vec4 res;
