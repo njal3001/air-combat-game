@@ -5,11 +5,9 @@
 
 #define SPD_NORM            2.0f
 #define ACCEL_NORM          1.0f
-#define ATTRACT_SPD_MAX     3.5f
-#define ATTRACT_RANGE       3.5f
-#define ATTRACT_ACCEL_MAX   10.0f
-#define WIGGLE_AMPLITUDE    0.035f
-#define WIGGLE_PERIOD       2.0f
+#define ATTRACT_SPD_MAX     1.0f
+#define ATTRACT_RANGE       1.5f
+#define ATTRACT_ACCEL_MAX   2.0f
 
 struct orb_data
 {
@@ -37,7 +35,7 @@ static void on_collide(struct actor *ac, struct actor *hit)
 void spawn_orb(struct world *w, struct vec3 pos)
 {
     struct actor *ac = new_actor(w, pos, ACTOR_TYPE_ORB);
-    vec3_div_eq(&ac->transform.scale, 4.0f);
+    vec3_div_eq(&ac->transform.scale, 8.0f);
 
     ac->on_collide = on_collide;
 

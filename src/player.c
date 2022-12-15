@@ -19,7 +19,7 @@
 #define ORB_LOOK_MUL        1.025f
 #define FUEL_MAX            100.0f
 #define FUEL_DEPLETE_RATE   10.0f
-#define FUEL_ORB_ADD        20.0f
+#define FUEL_ORB_ADD        15.0f
 #define LOOK_START          0.4f
 #define LOOK_ANG_MAX_BASE   0.05f
 #define LOOK_ANG_SPD_BASE   0.3f
@@ -54,6 +54,10 @@ static void on_collide(struct actor *ac, struct actor *hit)
         }
 
         data->fuel = fmin(data->fuel + FUEL_ORB_ADD, FUEL_MAX);
+    }
+    else if (hit->type == ACTOR_TYPE_WALL)
+    {
+        actor_kill(ac);
     }
 }
 

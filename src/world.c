@@ -11,7 +11,7 @@
 #include "calc.h"
 
 #define WORLD_BOUNDS    100.0f
-#define ORB_COUNT       1500
+#define ORB_COUNT       5000
 #define ORB_MIN_DIST    20.0f
 #define ORB_PADDING     10.0f
 

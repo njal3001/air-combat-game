@@ -270,6 +270,16 @@ struct vec3 vec3_normalize(struct vec3 v)
     return vec3_div(v, length);
 }
 
+struct vec3 vec3_vmul(struct vec3 lhs, struct vec3 rhs)
+{
+    struct vec3 res;
+    res.x = lhs.x * rhs.x;
+    res.y = lhs.y * rhs.y;
+    res.z = lhs.z * rhs.z;
+
+    return res;
+}
+
 // FIXME: Not uniform?
 // Also should prevent zero vectors
 struct vec3 vec3_rand()

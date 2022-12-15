@@ -83,6 +83,7 @@ struct vec3 vec3_cross(struct vec3 v1, struct vec3 v2);
 float vec3_length(struct vec3 v);
 float vec3_length2(struct vec3 v);
 struct vec3 vec3_normalize(struct vec3 v);
+struct vec3 vec3_vmul(struct vec3 lhs, struct vec3 rhs);
 struct vec3 vec3_rand();
 struct vec3 vec3_randrange(float min, float max);
 struct vec3 vec3_approach(struct vec3 val, struct vec3 target, float amount);

@@ -18,11 +18,53 @@ struct cbox_prj
     float end;
 };
 
-static void get_cbox_info(struct cbox_info *info, const struct actor *ac);
-static struct cbox_prj get_cbox_projection(const struct cbox_info *info,
-        struct vec3 axis);
+struct bbox
+{
+    float x1, x2;
+    float y1, y2;
+    float z1, z2;
+};
 
-void get_cbox_info(struct cbox_info *info, const struct actor *ac)
+static struct bbox get_bbox(const struct actor *a)
+{
+    struct bbox res;
+
+    struct vec3 offset = vec3_vmul(a->cbox.offset, a->transform.scale);
+    struct vec3 center = vec3_add(a->transform.pos, offset);
+    struct vec3 delta = vec3_vmul(a->cbox.bounds, a->transform.scale);
+
+    float delta_max = fmax(fmax(delta.x, delta.y), delta.z);
+
+    res.x1 = center.x - delta_max;
+    res.x2 = center.x + delta_max;
+    res.y1 = center.y - delta_max;
+    res.y2 = center.y + delta_max;
+    res.z1 = center.z - delta_max;
+    res.z2 = center.z + delta_max;
+
+    return res;
+}
+
+static bool bbox_overlapping(struct bbox a, struct bbox b)
+{
+    return
+        a.x1 <= b.x2 &&
+        a.x2 >= b.x1 &&
+        a.y1 <= b.y2 &&
+        a.y2 >= b.y1 &&
+        a.z1 <= b.z2 &&
+        a.z2 >= b.z1;
+}
+
+static bool check_broad_collide(const struct actor *a, const struct actor *b)
+{
+    struct bbox bbox_a = get_bbox(a);
+    struct bbox bbox_b = get_bbox(b);
+
+    return bbox_overlapping(bbox_a, bbox_b);
+}
+
+static void get_cbox_info(struct cbox_info *info, const struct actor *ac)
 {
     info->axis_x = transform_right(&ac->transform);
     info->axis_y = transform_up(&ac->transform);
@@ -46,7 +88,7 @@ void get_cbox_info(struct cbox_info *info, const struct actor *ac)
     info->points[7] = vec3_sub(vec3_add(vec3_add(p, dx), dy), dz);
 }
 
-struct cbox_prj get_cbox_projection(const struct cbox_info *info,
+static struct cbox_prj get_cbox_projection(const struct cbox_info *info,
         struct vec3 axis)
 {
     struct cbox_prj res;
@@ -65,6 +107,11 @@ struct cbox_prj get_cbox_projection(const struct cbox_info *info,
 
 bool check_collide(const struct actor *a, const struct actor *b)
 {
+    if (!check_broad_collide(a, b))
+    {
+        return false;
+    }
+
     struct cbox_info ainfo;
     get_cbox_info(&ainfo, a);
 

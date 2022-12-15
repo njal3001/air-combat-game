@@ -9,6 +9,7 @@
 #include "audio.h"
 #include "timer.h"
 #include "log.h"
+#include "calc.h"
 
 enum gstate
 {
@@ -19,11 +20,21 @@ enum gstate
 GLFWwindow *window;
 
 bool camera_free_mode;
+float camera_free_mode_spd;
 
 enum gstate state = GSTATE_MENU;
 
 static void camera_free_mode_update(float dt)
 {
+    if (key_pressed(GLFW_KEY_W))
+    {
+        camera_free_mode_spd += 5.0f;
+    }
+    if (key_pressed(GLFW_KEY_S))
+    {
+        camera_free_mode_spd = approach(camera_free_mode_spd, 5.0f, 5.0f);
+    }
+
     struct camera *cam = get_camera();
     const struct mouse *mouse = get_mouse();
 
@@ -32,9 +43,9 @@ static void camera_free_mode_update(float dt)
         struct vec3 right = transform_right(&cam->transform);
         struct vec3 up = transform_up(&cam->transform);
 
-        const float mspeed = 2.5f;
-        float dispx = mouse->dx * mspeed * dt;
-        float dispy = mouse->dy * mspeed * dt;
+        const float mspeed = 0.1f;
+        float dispx = mouse->dx * mspeed;
+        float dispy = mouse->dy * mspeed;
 
         vec3_add_eq(&cam->transform.pos, vec3_mul(right, dispx));
         vec3_add_eq(&cam->transform.pos, vec3_mul(up, dispy));
@@ -42,16 +53,16 @@ static void camera_free_mode_update(float dt)
 
     if (mouse->buttons[GLFW_MOUSE_BUTTON_RIGHT].state & KEY_DOWN)
     {
-        const float rspeed = 0.25f;
-        float rx = -mouse->dy * rspeed * dt;
-        float ry = mouse->dx * rspeed * dt;
+        const float rspeed = 0.005f;
+        float rx = -mouse->dy * rspeed;
+        float ry = mouse->dx * rspeed;
 
         transform_local_rotx(&cam->transform, rx);
         transform_local_roty(&cam->transform, ry);
     }
 
     struct vec3 forward = transform_forward(&cam->transform);
-    float famount = consume_mouse_scroll() * 100.0f * dt;
+    float famount = consume_mouse_scroll() * camera_free_mode_spd;
     vec3_add_eq(&cam->transform.pos, vec3_mul(forward, famount));
 }
 
@@ -141,6 +152,7 @@ void game_run()
                 // NOTE: Debug only
                 if (key_pressed(GLFW_KEY_ESCAPE))
                 {
+                    camera_free_mode_spd = 20.0f;
                     camera_free_mode = !camera_free_mode;
                     toggle_hud_rendering(&world);
                 }
