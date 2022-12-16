@@ -12,7 +12,7 @@ struct mat4 camera_view(const struct camera *camera)
 struct mat4 camera_projection(const struct camera *camera)
 {
     return mat4_perspective(camera->fov, camera->aspect,
-            camera->near, camera->far);
+            camera->cnear, camera->cfar);
 }
 
 struct vec2 world_to_screen_pos(const struct camera *cam, struct vec3 wpos)

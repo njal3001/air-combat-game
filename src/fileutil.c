@@ -1,14 +1,7 @@
-#include "platform.h"
+#include "fileutil.h"
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
-
-// NOTE: Linux only
-void get_exec_path(char *buf, size_t buf_size)
-{
-    readlink("/proc/self/exe", buf, buf_size - 1);
-    buf[buf_size - 1] = '\0';
-}
 
 void get_dir_path(char *path_buf, size_t up)
 {

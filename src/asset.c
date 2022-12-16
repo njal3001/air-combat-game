@@ -2,7 +2,7 @@
 #include <stdbool.h>
 #include <stdio.h>
 #include "string.h"
-#include "platform.h"
+#include "fileutil.h"
 #include "hashmap.h"
 #include "log.h"
 #include "mesh.h"
@@ -11,10 +11,10 @@
 #define STB_IMAGE_IMPLEMENTATION
 #include "third_party/stb_image.h"
 
-#define MAX_ASSET_PATH 512
+#define MAX_ASSET_PATH          512
+#define MAX_ASSET_LINE_LENGTH   256
 
 char asset_path[MAX_ASSET_PATH];
-size_t root_length;
 
 struct texture textures[ASSET_TEXTURE_END];
 struct mesh meshes[ASSET_MESH_END];
@@ -25,13 +25,13 @@ char *audio_paths[ASSET_AUDIO_END];
 static void load_asset_path(enum asset_type type, const char *name)
 {
     // Clear previous asset name
-    memset(asset_path + root_length, 0, MAX_ASSET_PATH - root_length);
+    memset(asset_path, 0, MAX_ASSET_PATH);
 
     // Select directory
     switch (type)
     {
         case ASSET_TYPE_SHADER:
-            strcat(asset_path, "src/shaders/");
+            strcat(asset_path, "assets/shaders/");
             break;
         default:
             strcat(asset_path, "assets/");
@@ -39,7 +39,7 @@ static void load_asset_path(enum asset_type type, const char *name)
     }
 
     // Append name
-    strncat(asset_path, name, MAX_ASSET_PATH - root_length);
+    strncat(asset_path, name, MAX_ASSET_PATH - 1);
 }
 
 static bool load_texture(enum asset_texture handle, const char *name)
@@ -88,23 +88,15 @@ static bool load_mesh(enum asset_mesh handle, const char *name)
     size_t vertex_count;
     size_t index_count;
 
-    char *line = NULL;
-    size_t blength = 0;
-    int read;
-
-    while ((read = getline(&line, &blength, f)) != -1)
+    char linebuf[MAX_ASSET_LINE_LENGTH];
+    while (fgets(linebuf, MAX_ASSET_LINE_LENGTH, f))
     {
-        if (!read)
-        {
-            continue;
-        }
-
         // Remove newline
-        line[strcspn(line, "\n")] = '\0';
+        linebuf[strcspn(linebuf, "\n")] = '\0';
 
         if (read_state == read_header)
         {
-            char *word = strtok(line, " ");
+            char *word = strtok(linebuf, " ");
             if (strcmp(word, "element") == 0)
             {
                 word = strtok(NULL, " ");
@@ -129,7 +121,7 @@ static bool load_mesh(enum asset_mesh handle, const char *name)
         {
             struct vert_mesh *v = mesh->vertices + vertices_read;
 
-            char *word = strtok(line, " ");
+            char *word = strtok(linebuf, " ");
             v->pos.x = strtof(word, NULL);
             word = strtok(NULL, " ");
             v->pos.y = strtof(word, NULL);
@@ -154,7 +146,7 @@ static bool load_mesh(enum asset_mesh handle, const char *name)
         }
         else if (read_state == read_faces)
         {
-            strtok(line, " ");
+            strtok(linebuf, " ");
 
             char *word = strtok(NULL, " ");
             mesh->indices[indices_read++] = strtol(word, NULL, 10);
@@ -165,7 +157,6 @@ static bool load_mesh(enum asset_mesh handle, const char *name)
         }
     }
 
-    free(line);
     fclose(f);
 
     return true;
@@ -223,23 +214,21 @@ static bool load_font(enum asset_font handle, const char *name)
     struct image img;
 
     char *word;
-    char *line = NULL;
-    size_t blength = 0;
-    int read;
+    char linebuf[MAX_ASSET_LINE_LENGTH];
 
     // Skip font name
-    getline(&line, &blength, f);
+    fgets(linebuf, MAX_ASSET_LINE_LENGTH, f);
 
     // Font size and line height
-    getline(&line, &blength, f);
-    strtok(line, " ");
-    word = strtok(line, " ");
+    fgets(linebuf, MAX_ASSET_LINE_LENGTH, f);
+    strtok(linebuf, " ");
+    word = strtok(linebuf, " ");
     lheight = strtol(word, NULL, 10);
 
     // Bitmap
-    getline(&line, &blength, f);
-    line[strcspn(line, "\n")] = '\0';
-    load_asset_path(ASSET_TYPE_TEXTURE, line);
+    fgets(linebuf, MAX_ASSET_LINE_LENGTH, f);
+    linebuf[strcspn(linebuf, "\n")] = '\0';
+    load_asset_path(ASSET_TYPE_TEXTURE, linebuf);
 
     img.data = stbi_load(asset_path, &img.width, &img.height,
             &img.channels, 0);
@@ -247,21 +236,20 @@ static bool load_font(enum asset_font handle, const char *name)
     {
         log_warn("Failed to load font %s. Could not load bitmap %s", name,
                 asset_path);
-        free(line);
         return false;
     }
 
     // Number of characters
-    getline(&line, &blength, f);
-    num_char = strtol(line, NULL, 10);
+    fgets(linebuf, MAX_ASSET_LINE_LENGTH, f);
+    num_char = strtol(linebuf, NULL, 10);
 
     font_init(font, num_char, lheight, &img);
     stbi_image_free(img.data);
 
     // Character information
-    while (getline(&line, &blength, f) != -1)
+    while (fgets(linebuf, MAX_ASSET_LINE_LENGTH, f))
     {
-        word = strtok(line, " ");
+        word = strtok(linebuf, " ");
         size_t id = strtol(word, NULL, 10);
         if (!id)
         {
@@ -280,8 +268,6 @@ static bool load_font(enum asset_font handle, const char *name)
         font_set_char(font, id, c);
     }
 
-    free(line);
-
     return true;
 }
 
@@ -296,11 +282,6 @@ static void load_audio_path(enum asset_audio handle, const char *name)
 
 void assets_init()
 {
-    // Find root path
-    get_exec_path(asset_path, MAX_ASSET_PATH);
-    get_dir_path(asset_path, 1);
-    root_length = strlen(asset_path);
-
     // Textures
     load_texture(ASSET_TEXTURE_METAL, "rusted_metal.jpg");
     load_texture(ASSET_TEXTURE_WALL, "wall.jpg");

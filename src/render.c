@@ -14,8 +14,8 @@
 #    define APIENTRY
 #endif
 
-#define NEAR 0.1f
-#define FAR 10000.0f
+#define CAMERA_NEAR 0.1f
+#define CAMERA_FAR 10000.0f
 #define FOV (M_PI / 4.0f)
 #define ASPECT_RATIO (1920.0f / 1080.0f)
 
@@ -104,8 +104,8 @@ bool render_init(GLFWwindow *window)
     transform_init(&camera.transform, VEC3_ZERO);
     camera.fov = FOV;
     camera.aspect = ASPECT_RATIO;
-    camera.near = NEAR;
-    camera.far = FAR;
+    camera.cnear = CAMERA_NEAR;
+    camera.cfar = CAMERA_FAR;
 
     struct vert_attrib pos_attrib =
     {
@@ -459,18 +459,18 @@ void render_push_untextured_cube(struct vec3 center, struct vec3 size,
     float right = center.x + shalf.x;
     float top = center.y + shalf.y;
     float bot = center.y - shalf.y;
-    float near = center.z + shalf.z;
-    float far = center.z - shalf.z;
+    float znear = center.z + shalf.z;
+    float zfar = center.z - shalf.z;
 
-    struct vec3 p0 = vec3_create(left, top, near);
-    struct vec3 p1 = vec3_create(left, bot, near);
-    struct vec3 p2 = vec3_create(right, bot, near);
-    struct vec3 p3 = vec3_create(right, top, near);
+    struct vec3 p0 = vec3_create(left, top, znear);
+    struct vec3 p1 = vec3_create(left, bot, znear);
+    struct vec3 p2 = vec3_create(right, bot, znear);
+    struct vec3 p3 = vec3_create(right, top, znear);
 
-    struct vec3 p4 = vec3_create(left, top, far);
-    struct vec3 p5 = vec3_create(left, bot, far);
-    struct vec3 p6 = vec3_create(right, bot, far);
-    struct vec3 p7 = vec3_create(right, top, far);
+    struct vec3 p4 = vec3_create(left, top, zfar);
+    struct vec3 p5 = vec3_create(left, bot, zfar);
+    struct vec3 p6 = vec3_create(right, bot, zfar);
+    struct vec3 p7 = vec3_create(right, top, zfar);
 
     render_push_untextured_volume(p0, p1, p2, p3, p4, p5, p6, p7, col);
 }

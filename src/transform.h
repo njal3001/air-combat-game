@@ -16,5 +16,3 @@ struct mat4 transform_matrix(const struct transform *t);
 void transform_local_rotx(struct transform *t, float delta);
 void transform_local_roty(struct transform *t, float delta);
 void transform_local_rotz(struct transform *t, float delta);
-
-struct mat4 forward_to_rotation(struct vec3 forward, struct vec3 up);

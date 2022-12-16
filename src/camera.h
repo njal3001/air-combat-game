@@ -6,8 +6,8 @@ struct camera
     struct transform transform;
     float fov;
     float aspect;
-    float near;
-    float far;
+    float cnear;
+    float cfar;
 };
 
 struct mat4 camera_view(const struct camera *camera);

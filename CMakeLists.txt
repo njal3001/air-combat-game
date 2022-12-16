@@ -5,6 +5,8 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 find_package(glfw3 3.3 REQUIRED)
 find_package(OpenGL REQUIRED)
+
+set(GLEW_USE_STATIC_LIBS ON)
 find_package(GLEW REQUIRED)
 
 add_executable(asteroids
@@ -25,8 +27,8 @@ add_executable(asteroids
     src/input.c
     src/asset.h
     src/asset.c
-    src/platform.h
-    src/platform.c
+    src/fileutil.h
+    src/fileutil.c
     src/hashmap.h
     src/hashmap.c
     src/shader.h
@@ -65,9 +67,11 @@ add_executable(asteroids
 
 include_directories(. ${GLEW_INCLUDE_DIRS})
 
-target_link_libraries(asteroids m glfw ${OPENGL_LIBRARIES} ${GLEW_LIBRARIES})
+target_link_libraries(asteroids m glfw ${OPENGL_LIBRARIES} GLEW::GLEW)
+
+file(COPY assets DESTINATION ${CMAKE_BINARY_DIR})
 
 add_custom_target(run
-    COMMAND asteroids
+    COMMAND ./asteroids
     DEPENDS asteroids
     WORKING_DIRECTORY ${CMAKE_PROJECT_DIR})
