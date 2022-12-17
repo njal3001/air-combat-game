@@ -124,8 +124,7 @@ void world_init(struct world *w)
 {
     w->show_colliders = false;
     w->show_hud = true;
-
-    memset(w->actors, 0, sizeof(w->actors));
+    w->actors = calloc(MAX_ACTORS, sizeof(struct actor));
 
     // Spawn tick is 0 for all initial actors
     w->tick = 0;
@@ -159,7 +158,7 @@ void world_end(struct world *w)
         actor_free(ac);
     }
 
-    memset(w->actors, 0, sizeof(w->actors));
+    memset(w->actors, 0, sizeof(struct actor) * MAX_ACTORS);
     w->num_actors = 0;
     w->tick = 0;
     w->player = NULL;
@@ -274,6 +273,7 @@ void world_render(struct world *w)
 void world_free(struct world *w)
 {
     world_end(w);
+    free(w->actors);
 }
 
 bool world_should_end(const struct world *w)

@@ -6,7 +6,7 @@
 struct world
 {
     struct actor *player;
-    struct actor actors[MAX_ACTORS];
+    struct actor *actors;
     uint16_t num_actors;
     uint8_t tick;
     bool show_colliders;
