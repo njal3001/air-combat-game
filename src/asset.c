@@ -86,7 +86,7 @@ static bool load_mesh(enum asset_mesh handle, const char *name)
     size_t indices_read = 0;
 
     size_t vertex_count;
-    size_t index_count;
+    size_t tri_count;
 
     char linebuf[MAX_ASSET_LINE_LENGTH];
     while (fgets(linebuf, MAX_ASSET_LINE_LENGTH, f))
@@ -108,13 +108,13 @@ static bool load_mesh(enum asset_mesh handle, const char *name)
                 }
                 else if (strcmp(word, "face") == 0)
                 {
-                    index_count = strtol(scount, NULL, 10) * 3;
+                    tri_count = strtol(scount, NULL, 10);
                 }
             }
             else if (strcmp(word, "end_header") == 0)
             {
                 read_state = read_vertices;
-                mesh_init(mesh, vertex_count, index_count);
+                mesh_init(mesh, vertex_count, tri_count);
             }
         }
         else if (read_state == read_vertices)

@@ -21,6 +21,8 @@ GLFWwindow *window;
 
 bool camera_free_mode;
 float camera_free_mode_spd;
+float camera_free_mode_mspd;
+float camera_free_mode_rspd;
 
 enum gstate state = GSTATE_MENU;
 
@@ -28,11 +30,15 @@ static void camera_free_mode_update(float dt)
 {
     if (key_pressed(GLFW_KEY_W))
     {
-        camera_free_mode_spd += 5.0f;
+        camera_free_mode_spd *= 2.0f;
+        camera_free_mode_mspd *= 2.0f;
+        camera_free_mode_rspd *= 1.25f;
     }
     if (key_pressed(GLFW_KEY_S))
     {
-        camera_free_mode_spd = approach(camera_free_mode_spd, 5.0f, 5.0f);
+        camera_free_mode_spd /= 2.0f;
+        camera_free_mode_mspd /= 2.0f;
+        camera_free_mode_rspd /= 1.25f;
     }
 
     struct camera *cam = get_camera();
@@ -43,9 +49,8 @@ static void camera_free_mode_update(float dt)
         struct vec3 right = transform_right(&cam->transform);
         struct vec3 up = transform_up(&cam->transform);
 
-        const float mspeed = 0.1f;
-        float dispx = mouse->dx * mspeed;
-        float dispy = mouse->dy * mspeed;
+        float dispx = mouse->dx * camera_free_mode_mspd;
+        float dispy = mouse->dy * camera_free_mode_mspd;
 
         vec3_add_eq(&cam->transform.pos, vec3_mul(right, dispx));
         vec3_add_eq(&cam->transform.pos, vec3_mul(up, dispy));
@@ -53,9 +58,8 @@ static void camera_free_mode_update(float dt)
 
     if (mouse->buttons[GLFW_MOUSE_BUTTON_RIGHT].state & KEY_DOWN)
     {
-        const float rspeed = 0.005f;
-        float rx = -mouse->dy * rspeed;
-        float ry = mouse->dx * rspeed;
+        float rx = -mouse->dy * camera_free_mode_rspd;
+        float ry = mouse->dx * camera_free_mode_rspd;
 
         transform_local_rotx(&cam->transform, rx);
         transform_local_roty(&cam->transform, ry);
@@ -153,6 +157,9 @@ void game_run()
                 if (key_pressed(GLFW_KEY_ESCAPE))
                 {
                     camera_free_mode_spd = 20.0f;
+                    camera_free_mode_mspd = 0.1f;
+                    camera_free_mode_rspd = 0.005f;
+
                     camera_free_mode = !camera_free_mode;
                     toggle_hud_rendering(&world);
                 }

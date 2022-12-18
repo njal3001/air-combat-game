@@ -19,8 +19,9 @@ struct mesh
     const struct texture *texture;
 };
 
-void mesh_init(struct mesh *mesh, size_t vertex_count, size_t index_count);
+void mesh_init(struct mesh *mesh, size_t vertex_count, size_t tri_count);
 void mesh_free(struct mesh *mesh);
 
 struct mesh create_quad_mesh();
 struct mesh create_cube_mesh();
+struct mesh create_icosahedron_mesh();
